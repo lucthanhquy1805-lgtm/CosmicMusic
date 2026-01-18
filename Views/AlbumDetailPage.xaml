@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             xmlns:models="clr-namespace:CosmicMusic.Models"
+             x:Class="CosmicMusic.Views.AlbumDetailPage"
+             x:DataType="viewmodels:AlbumDetailViewModel"
+             BackgroundColor="{StaticResource PrimaryDark}"
+             Title="Album Details">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="*, Auto">
+        <ScrollView Grid.Row="0" Padding="0,0,0,80">
+            <VerticalStackLayout>
+
+                <Grid HeightRequest="400">
+                    <Image Source="{Binding AlbumData.CoverImage}" Aspect="AspectFill" Opacity="0.4"/>
+                    <BoxView>
+                        <BoxView.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="Transparent" Offset="0.0"/>
+                                <GradientStop Color="{StaticResource PrimaryDark}" Offset="1.0"/>
+                            </LinearGradientBrush>
+                        </BoxView.Background>
+                    </BoxView>
+
+                    <VerticalStackLayout VerticalOptions="End" Padding="20" Spacing="5">
+                        <Label Text="{Binding AlbumData.Title}" FontSize="32" FontAttributes="Bold" TextColor="White"/>
+                        <Label Text="{Binding AlbumData.Description}" FontSize="14" TextColor="#BBB" Margin="0,0,0,15"/>
+
+                        <Grid ColumnDefinitions="Auto, Auto, *, Auto, Auto, Auto" ColumnSpacing="15">
+
+                            <Button Grid.Column="0" Text="Play" Command="{Binding PlayAlbumCommand}"
+                                    BackgroundColor="{StaticResource CosmicPink}" TextColor="White" 
+                                    FontAttributes="Bold" CornerRadius="20" HeightRequest="45" WidthRequest="100"/>
+
+                            <Button Grid.Column="1" Text="Shuffle" Command="{Binding ShuffleAlbumCommand}"
+                                    BackgroundColor="Transparent" TextColor="White" BorderColor="#555" BorderWidth="1"
+                                    FontAttributes="Bold" CornerRadius="20" HeightRequest="45" WidthRequest="100"/>
+
+                            <ImageButton Grid.Column="3" HeightRequest="30" WidthRequest="30">
+                                <ImageButton.Source>
+                                    <FontImageSource Glyph="⊕" Color="White" Size="25"/>
+                                </ImageButton.Source>
+                            </ImageButton>
+                            <ImageButton Grid.Column="4" HeightRequest="30" WidthRequest="30">
+                                <ImageButton.Source>
+                                    <FontImageSource Glyph="⬇" Color="White" Size="25"/>
+                                </ImageButton.Source>
+                            </ImageButton>
+                            <ImageButton Grid.Column="5" HeightRequest="30" WidthRequest="30">
+                                <ImageButton.Source>
+                                    <FontImageSource Glyph="⋮" Color="White" Size="25"/>
+                                </ImageButton.Source>
+                            </ImageButton>
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <ImageButton VerticalOptions="Start" HorizontalOptions="Start" Margin="15,40,0,0" 
+                                 Command="{Binding GoBackCommand}" HeightRequest="40" WidthRequest="40">
+                        <ImageButton.Source>
+                            <FontImageSource Glyph="←" Color="White" Size="30"/>
+                        </ImageButton.Source>
+                    </ImageButton>
+                </Grid>
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding AlbumSongs}" Padding="20,10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:Song">
+                            <Grid ColumnDefinitions="30, *, Auto, 30" HeightRequest="60">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AlbumDetailViewModel}}, Path=PlaySongCommand}" CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+
+                                <Label Grid.Column="0" Text="♪" TextColor="#777" VerticalOptions="Center"/>
+
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                    <Label Text="{Binding Title}" TextColor="White" FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding Artist}" TextColor="#AAA" FontSize="13"/>
+                                </VerticalStackLayout>
+
+                                <Label Grid.Column="2" 
+       
+       TextColor="#AAA" FontSize="13" 
+       VerticalOptions="Center" Margin="0,0,15,0"/>
+
+                                <Label Grid.Column="3" Text="⋮" TextColor="#AAA" FontSize="20" VerticalOptions="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Border Grid.Row="1" IsVisible="False" Margin="15,0,15,15" Padding="0" Stroke="{StaticResource CosmicPink}" StrokeThickness="1" BackgroundColor="#252535" StrokeShape="RoundRectangle 15" HeightRequest="65" VerticalOptions="End">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.5"/>
+            </Border.Shadow>
+
+            <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="True">
+                    <Setter Property="IsVisible" Value="True" />
+                </DataTrigger>
+            </Border.Triggers>
+
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
+            </Border.GestureRecognizers>
+
+            <Grid ColumnDefinitions="65, *, Auto" ColumnSpacing="10">
+                <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="15" Margin="5" BorderColor="Transparent" BackgroundColor="Transparent">
+                    <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
+                </Frame>
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="0,5">
+                    <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontSize="14" FontAttributes="Bold" TextColor="White" LineBreakMode="TailTruncation"/>
+                    <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontSize="12" TextColor="#AAA" LineBreakMode="TailTruncation"/>
+                </VerticalStackLayout>
+                <ImageButton Grid.Column="2" Command="{Binding AudioPlayer.PlayPauseCommand}" HeightRequest="40" WidthRequest="40" VerticalOptions="Center" Margin="0,0,15,0" BackgroundColor="Transparent">
+                    <ImageButton.Source>
+                        <FontImageSource Glyph="▶" Color="{StaticResource CosmicPink}" Size="28"/>
+                    </ImageButton.Source>
+                    <ImageButton.Triggers>
+                        <DataTrigger TargetType="ImageButton" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
+                            <Setter Property="Source">
+                                <FontImageSource Glyph="⏸" Color="{StaticResource CosmicPink}" Size="28"/>
+                            </Setter>
+                        </DataTrigger>
+                        <DataTrigger TargetType="ImageButton" Binding="{Binding AudioPlayer.IsPlaying}" Value="False">
+                            <Setter Property="Source">
+                                <FontImageSource Glyph="▶" Color="{StaticResource CosmicPink}" Size="28"/>
+                            </Setter>
+                        </DataTrigger>
+                    </ImageButton.Triggers>
+                </ImageButton>
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="CosmicMusic.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:CosmicMusic.Views"
+    Shell.FlyoutBehavior="Disabled"
+    Shell.BackgroundColor="{StaticResource PrimaryDark}"
+    Shell.TabBarBackgroundColor="#1E1E2C"
+    Shell.TabBarTitleColor="#A569F7"
+    Shell.TabBarUnselectedColor="#777777">
+
+    <TabBar>
+        <Tab Title="Home">
+            <Tab.Icon>
+                <FontImageSource Glyph="🏠" FontFamily="OpenSansRegular" Color="#A569F7"/>
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate views:HomePage}" Route="HomePage" />
+        </Tab>
+
+        <Tab Title="Search">
+            <Tab.Icon>
+                <FontImageSource Glyph="🔍" FontFamily="OpenSansRegular" Color="#A569F7"/>
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate views:SearchPage}" Route="SearchPage" />
+        </Tab>
+
+        <Tab Title="Library">
+            <Tab.Icon>
+                <FontImageSource Glyph="📚" FontFamily="OpenSansRegular" Color="#A569F7"/>
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate views:LibraryPage}" Route="LibraryPage" />
+        </Tab>
+
+        <Tab Title="Profile">
+            <Tab.Icon>
+                <FontImageSource Glyph="👤" FontFamily="OpenSansRegular" Color="#A569F7"/>
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate views:HomePage}" Route="ProfilePage" />
+        </Tab>
+    </TabBar>
+</Shell>
