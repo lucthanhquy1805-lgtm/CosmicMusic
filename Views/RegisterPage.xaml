@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             x:Class="CosmicMusic.Views.RegisterPage"
+             x:DataType="viewmodels:RegisterViewModel"
+             Title="Register"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False">
+
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#1A1A2E" Offset="0.0" />
+            <GradientStop Color="#16213E" Offset="1.0" />
+        </LinearGradientBrush>
+    </ContentPage.Background>
+
+    <ContentPage.Resources>
+        <x:String x:Key="IconUser">M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z</x:String>
+        <x:String x:Key="IconEmail">M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z</x:String>
+        <x:String x:Key="IconLock">M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z</x:String>
+        <x:String x:Key="IconEye">M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z</x:String>
+    </ContentPage.Resources>
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="25" Padding="30" VerticalOptions="Center">
+
+            <ImageButton Source="{FontImageSource Glyph='⬅', FontFamily='OpenSansRegular', Color='White'}" 
+                         HorizontalOptions="Start" 
+                         HeightRequest="40" 
+                         Command="{Binding NavigateBackToLoginCommand}"
+                         BackgroundColor="Transparent"/>
+
+            <Label Text="Create Account" 
+                   TextColor="White" 
+                   FontSize="32" 
+                   FontFamily="MontserratBold"/>
+
+            <Label Text="Start your listening journey today." 
+                   TextColor="#AAA" 
+                   FontSize="16" 
+                   FontFamily="MontserratRegular"/>
+
+            <VerticalStackLayout Spacing="15" Margin="0,20,0,0">
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Full Name" TextColor="#DDD" FontSize="14"/>
+                    <Border StrokeShape="RoundRectangle 12" StrokeThickness="1" Stroke="#33FFFFFF" BackgroundColor="#22FFFFFF" HeightRequest="50">
+                        <Grid ColumnDefinitions="40, *">
+                            <Path Grid.Column="0" Data="{StaticResource IconUser}" Fill="#AAA" Aspect="Uniform" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            <Entry Grid.Column="1" Text="{Binding FullName}" Placeholder="Enter your full name" PlaceholderColor="#777" TextColor="White" VerticalOptions="Center"/>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Email Address" TextColor="#DDD" FontSize="14"/>
+                    <Border StrokeShape="RoundRectangle 12" StrokeThickness="1" Stroke="#33FFFFFF" BackgroundColor="#22FFFFFF" HeightRequest="50">
+                        <Grid ColumnDefinitions="40, *">
+                            <Path Grid.Column="0" Data="{StaticResource IconEmail}" Fill="#AAA" Aspect="Uniform" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            <Entry Grid.Column="1" Text="{Binding Email}" Placeholder="hello@example.com" Keyboard="Email" PlaceholderColor="#777" TextColor="White" VerticalOptions="Center"/>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Password" TextColor="#DDD" FontSize="14"/>
+                    <Border StrokeShape="RoundRectangle 12" StrokeThickness="1" Stroke="#33FFFFFF" BackgroundColor="#22FFFFFF" HeightRequest="50">
+                        <Grid ColumnDefinitions="40, *, 40">
+                            <Path Grid.Column="0" Data="{StaticResource IconLock}" Fill="#AAA" Aspect="Uniform" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            <Entry Grid.Column="1" Text="{Binding Password}" IsPassword="{Binding IsPasswordHidden}" Placeholder="Create a password" PlaceholderColor="#777" TextColor="White" VerticalOptions="Center"/>
+                            <ImageButton Grid.Column="2" Command="{Binding TogglePasswordVisibilityCommand}" BackgroundColor="Transparent">
+                                <ImageButton.Source>
+                                    <FontImageSource Glyph="👁" Color="#AAA" Size="20"/>
+                                </ImageButton.Source>
+                            </ImageButton>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="5">
+                    <Label Text="Confirm Password" TextColor="#DDD" FontSize="14"/>
+                    <Border StrokeShape="RoundRectangle 12" StrokeThickness="1" Stroke="#33FFFFFF" BackgroundColor="#22FFFFFF" HeightRequest="50">
+                        <Grid ColumnDefinitions="40, *">
+                            <Path Grid.Column="0" Data="{StaticResource IconLock}" Fill="#AAA" Aspect="Uniform" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            <Entry Grid.Column="1" Text="{Binding ConfirmPassword}" IsPassword="True" Placeholder="Confirm your password" PlaceholderColor="#777" TextColor="White" VerticalOptions="Center"/>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+
+            <Button Text="Sign Up" 
+                    Command="{Binding RegisterCommand}"
+                    FontFamily="MontserratBold"
+                    TextColor="White"
+                    FontSize="16"
+                    CornerRadius="25"
+                    HeightRequest="55"
+                    Margin="0,20,0,0">
+                <Button.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#8E2DE2" Offset="0.0" />
+                        <GradientStop Color="#4A00E0" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Button.Background>
+                <Button.Shadow>
+                    <Shadow Brush="#8E2DE2" Offset="0,4" Radius="10" Opacity="0.4"/>
+                </Button.Shadow>
+            </Button>
+
+            <Label Text="Or continue with" TextColor="#777" HorizontalOptions="Center" FontSize="12" Margin="0,10,0,10"/>
+
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
+                <Frame HeightRequest="50" WidthRequest="50" CornerRadius="25" BackgroundColor="#22FFFFFF" BorderColor="Transparent" Padding="0">
+                    <Label Text="G" VerticalOptions="Center" HorizontalOptions="Center" TextColor="White" FontSize="20" FontAttributes="Bold"/>
+                </Frame>
+                <Frame HeightRequest="50" WidthRequest="50" CornerRadius="25" BackgroundColor="#22FFFFFF" BorderColor="Transparent" Padding="0">
+                    <Label Text="" VerticalOptions="Center" HorizontalOptions="Center" TextColor="White" FontSize="20"/>
+                </Frame>
+            </HorizontalStackLayout>
+
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="5" Margin="0,20,0,0">
+                <Label Text="Already have an account?" TextColor="#AAA"/>
+                <Label Text="Log In" TextColor="#8E2DE2" FontAttributes="Bold">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding NavigateBackToLoginCommand}"/>
+                    </Label.GestureRecognizers>
+                </Label>
+            </HorizontalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

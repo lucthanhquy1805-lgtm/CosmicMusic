@@ -53,6 +53,12 @@ public static class MauiProgram
         // --- NHÓM ALBUM DETAIL ---
         builder.Services.AddTransient<AlbumDetailViewModel>();
         builder.Services.AddTransient<AlbumDetailPage>();
+        //---- --- NHÓM LOGIN ---
+        builder.Services.AddTransient<LoginPage>();
+        builder.Services.AddTransient<LoginViewModel>();
+        //--- --- NHÓM REGISTER ---
+        builder.Services.AddTransient<RegisterPage>();
+        builder.Services.AddTransient<RegisterViewModel>();
 
 #if DEBUG
         builder.Logging.AddDebug();

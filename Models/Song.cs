@@ -23,6 +23,7 @@ namespace CosmicMusic.Models
         public bool IsFavorite { get; set; }    // Đánh dấu yêu thích
 
         // --- Các thuộc tính hỗ trợ (Không lưu vào Database) ---
+        public bool IsPremium { get; set; } = false;
 
         [Ignore]
         public bool IsDownloaded => !string.IsNullOrEmpty(LocalPath) && File.Exists(LocalPath);

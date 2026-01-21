@@ -10,7 +10,15 @@
     Shell.TabBarTitleColor="#A569F7"
     Shell.TabBarUnselectedColor="#777777">
 
-    <TabBar>
+    <ShellContent
+        Title="Login"
+        ContentTemplate="{DataTemplate views:LoginPage}"
+        Route="LoginPage"
+        Shell.TabBarIsVisible="False"
+        Shell.NavBarIsVisible="False" />
+
+    <TabBar Route="MainTabs">
+
         <Tab Title="Home">
             <Tab.Icon>
                 <FontImageSource Glyph="🏠" FontFamily="OpenSansRegular" Color="#A569F7"/>
@@ -38,5 +46,7 @@
             </Tab.Icon>
             <ShellContent ContentTemplate="{DataTemplate views:HomePage}" Route="ProfilePage" />
         </Tab>
+
     </TabBar>
+
 </Shell>

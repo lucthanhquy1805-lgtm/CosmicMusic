@@ -6,6 +6,16 @@ namespace CosmicMusic
 {
     public static class Constants
     {
+        // ============================================================
+        // 1. CẤU HÌNH FIREBASE (MỚI THÊM)
+        // ============================================================
+
+        // 👇 HÃY DÁN API KEY BẠN VỪA COPY TỪ FIREBASE CONSOLE VÀO ĐÂY
+        public const string FirebaseApiKey = "AIzaSyDPUF_xVA9cF7T91vH-Q0J8RxDDE5sqK0M";
+
+        // ============================================================
+        // 2. CẤU HÌNH SQLITE (GIỮ NGUYÊN CŨ)
+        // ============================================================
         public const string DatabaseFilename = "CosmicMusic.db3";
 
         public const SQLite.SQLiteOpenFlags Flags =

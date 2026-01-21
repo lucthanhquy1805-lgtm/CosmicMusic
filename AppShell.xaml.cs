@@ -12,7 +12,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(PlayerPage), typeof(PlayerPage));
         Routing.RegisterRoute(nameof(SearchPage), typeof(SearchPage));
         Routing.RegisterRoute(nameof(Views.AlbumDetailPage), typeof(Views.AlbumDetailPage));
-
+        Routing.RegisterRoute(nameof(RegisterPage), typeof(RegisterPage));
     }
 
 }

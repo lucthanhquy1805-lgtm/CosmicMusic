@@ -42,6 +42,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AWSSDK.Core" Version="4.0.3.10" />
+		<PackageReference Include="AWSSDK.S3" Version="4.0.17.3" />
 		<PackageReference Include="CommunityToolkit.Maui" Version="13.0.0" />
 
 		<PackageReference Include="CommunityToolkit.Maui.MediaElement" Version="3.1.0" />
@@ -66,6 +68,12 @@
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\LibraryPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Views\LoginPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Views\RegisterPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\SearchPage.xaml">

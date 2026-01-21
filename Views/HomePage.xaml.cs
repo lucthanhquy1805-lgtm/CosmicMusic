@@ -22,12 +22,21 @@ public partial class HomePage : ContentPage
         _audioViewModel.PropertyChanged += OnAudioViewModelPropertyChanged;
 
         // 2. Đăng ký nghe lệnh TUA NHẠC (Seek) từ ViewModel
-        // Khi người dùng thả tay khỏi thanh trượt, ViewModel bắn sự kiện này -> App thực hiện tua
         _audioViewModel.RequestSeek += (s, e) =>
         {
             homeMediaElement.SeekTo(_audioViewModel.CurrentPosition);
         };
     }
+
+    // 👇 [QUAN TRỌNG] THÊM ĐOẠN NÀY ĐỂ CẬP NHẬT AVATAR 👇
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+
+        // Gọi hàm tải chữ cái Avatar mỗi khi màn hình hiện lên
+        _homeViewModel.LoadUserAvatar();
+    }
+    // 👆 HẾT PHẦN THÊM MỚI 👆
 
     // --- XỬ LÝ ĐỒNG BỘ PLAY/PAUSE ---
     private void OnAudioViewModelPropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -50,17 +59,16 @@ public partial class HomePage : ContentPage
         }
     }
 
-    // --- KHI NHẠC ĐANG CHẠY (QUAN TRỌNG: LOGIC KÉO THẢ) ---
+    // --- KHI NHẠC ĐANG CHẠY ---
     private void OnPositionChanged(object sender, MediaPositionChangedEventArgs e)
     {
         // 1. NẾU ĐANG KÉO THANH TRƯỢT -> DỪNG CẬP NHẬT
-        // Để tránh thanh trượt bị giật lại vị trí cũ khi tay chưa kịp thả ra
         if (_audioViewModel.IsDragging) return;
 
         // 2. Cập nhật vị trí bình thường
         _audioViewModel.CurrentPosition = e.Position;
 
-        // 3. Sửa lỗi "Bóng ma thời gian" (Nếu độ dài sai thì sửa lại ngay)
+        // 3. Sửa lỗi "Bóng ma thời gian"
         if (homeMediaElement.Duration != TimeSpan.Zero &&
             _audioViewModel.Duration != homeMediaElement.Duration)
         {
@@ -71,6 +79,9 @@ public partial class HomePage : ContentPage
     // --- KHI HẾT BÀI (AUTO NEXT) ---
     private void OnMediaEnded(object sender, EventArgs e)
     {
-        _audioViewModel.NextCommand.Execute(null);
+        if (_audioViewModel.NextCommand.CanExecute(null))
+        {
+            _audioViewModel.NextCommand.Execute(null);
+        }
     }
 }

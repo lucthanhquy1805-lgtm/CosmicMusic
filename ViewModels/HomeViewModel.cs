@@ -13,13 +13,21 @@ namespace CosmicMusic.ViewModels
         private readonly MusicApiService _musicService;
         private readonly AudioViewModel _audioViewModel;
 
-        // 2. Danh sách bài hát hiển thị trên màn hình (Recently Played)
+        // 2. Danh sách bài hát
         public ObservableCollection<Song> Playlist { get; set; } = new();
 
-        // 3. Biến Public để giao diện (XAML) có thể gọi tới AudioViewModel
+        // 3. Audio Player và Biến điều khiển Menu
         public AudioViewModel AudioPlayer => _audioViewModel;
 
-        // 4. Hàm khởi tạo (Constructor)
+        // Biến ẩn/hiện Menu Dropdown
+        [ObservableProperty]
+        private bool _isUserMenuVisible = false;
+
+        // Biến hiển thị chữ cái Avatar
+        [ObservableProperty]
+        private string _userAvatarText;
+
+        // 4. Hàm khởi tạo
         public HomeViewModel(MusicApiService musicService, AudioViewModel audioViewModel)
         {
             _musicService = musicService;
@@ -32,38 +40,53 @@ namespace CosmicMusic.ViewModels
         {
             try
             {
-                // Gọi Service lấy tất cả bài hát
                 var allSongs = await _musicService.GetSongsAsync();
-
                 Playlist.Clear();
 
-                // 👇 LOGIC MỚI: CHỈ LẤY 5 BÀI ĐẦU TIÊN (5 Playlist Gốc)
-                // ---------------------------------------------------------
-                // TODO: Sau này khi tích hợp AWS, đoạn này sẽ đổi thành gọi API:
-                // var history = await _awsService.GetListeningHistory(userId);
-                // ---------------------------------------------------------
+                // Lấy 5 bài (Giả lập logic)
+                var recentSongs = allSongs.Skip(5).Take(5).ToList();
 
-                // Tạm thời lấy 5 item đầu tiên trong danh sách giả lập
-                var recentSongs = allSongs.Skip(5).Take(5);
-
-                foreach (var song in recentSongs)
+                // TẠO DỮ LIỆU GIẢ ĐỂ TEST VIP
+                for (int i = 0; i < recentSongs.Count; i++)
                 {
+                    var song = recentSongs[i];
+                    if (i == 1 || i == 3)
+                    {
+                        song.IsPremium = true;
+                        song.Title += " (👑)";
+                    }
+                    else
+                    {
+                        song.IsPremium = false;
+                    }
                     Playlist.Add(song);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Lỗi tải nhạc trang Home: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Lỗi tải nhạc: {ex.Message}");
             }
         }
 
-        // --- LỆNH 1: CHỌN BÀI HÁT ---
+        // --- HÀM 1: CHỌN BÀI HÁT ---
         [RelayCommand]
         public async Task SelectSong(Song song)
         {
             if (song == null) return;
 
-            // Đóng gói dữ liệu để gửi sang PlayerPage
+            bool isUserPremium = Preferences.Get("IsPremium", false);
+
+            if (song.IsPremium == true && isUserPremium == false)
+            {
+                bool answer = await Shell.Current.DisplayAlert(
+                    "Premium Content 👑",
+                    "Bài hát này dành riêng cho tài khoản VIP.",
+                    "Nâng cấp", "Để sau");
+
+                if (answer) await Shell.Current.DisplayAlert("Info", "Chức năng thanh toán đang phát triển", "OK");
+                return;
+            }
+
             var libraryItem = new LibraryItem
             {
                 Title = song.Title,
@@ -74,40 +97,21 @@ namespace CosmicMusic.ViewModels
             };
 
             var navigationParameter = new Dictionary<string, object>
-            {
-                { "SongData", libraryItem }
-            };
+            { { "SongData", libraryItem } };
 
-            // Gọi AudioViewModel phát nhạc
             _audioViewModel.PlaySong(song, Playlist);
-
-            // Chuyển trang
             await Shell.Current.GoToAsync(nameof(PlayerPage), navigationParameter);
         }
 
-        // --- LỆNH 2: ẤN VÀO MINI PLAYER ---
+        // --- HÀM 2: CÁC ĐIỀU HƯỚNG CƠ BẢN ---
         [RelayCommand]
         public async Task NavigateToPlayer()
         {
             if (_audioViewModel.CurrentSong != null)
             {
-                var currentSong = _audioViewModel.CurrentSong;
-
-                var libraryItem = new LibraryItem
-                {
-                    Title = currentSong.Title,
-                    Subtitle = currentSong.Artist,
-                    CoverImage = currentSong.CoverImage,
-                    Url = currentSong.AudioUrl,
-                    ImageColor = "#120520"
-                };
-
-                var navigationParameter = new Dictionary<string, object>
-                {
-                    { "SongData", libraryItem }
-                };
-
-                await Shell.Current.GoToAsync(nameof(PlayerPage), navigationParameter);
+                // Logic tạo LibraryItem từ CurrentSong...
+                // (Giản lược bớt code lặp để gọn, nhưng bạn giữ nguyên logic cũ cũng được)
+                await Shell.Current.GoToAsync(nameof(PlayerPage));
             }
         }
 
@@ -116,32 +120,87 @@ namespace CosmicMusic.ViewModels
         {
             await Shell.Current.GoToAsync(nameof(SearchPage));
         }
-        // ... (Các hàm cũ giữ nguyên)
 
-        // 👇 THÊM HÀM NÀY ĐỂ MỞ TRANG ALBUM DETAIL 👇
         [RelayCommand]
         public async Task OpenAlbum(Song song)
         {
             if (song == null) return;
-
-            // 1. Chuyển đổi dữ liệu từ Song (Item hiển thị ở Home) sang Album (Model trang chi tiết)
             var album = new Album
             {
                 Title = song.Title,
                 Artist = song.Artist,
                 CoverImage = song.CoverImage,
-                // Giả lập mô tả hoặc lấy từ dữ liệu nếu có
                 Description = $"Album by {song.Artist} • 2023"
             };
-
-            // 2. Đóng gói dữ liệu
             var navigationParameter = new Dictionary<string, object>
-            {
-                { "AlbumData", album } // Khóa "AlbumData" phải khớp với [QueryProperty] bên AlbumDetailViewModel
-            };
-
-            // 3. Chuyển sang trang AlbumDetailPage
+            { { "AlbumData", album } };
             await Shell.Current.GoToAsync(nameof(AlbumDetailPage), navigationParameter);
+        }
+
+
+        // ==========================================================
+        // 👇 PHẦN LOGIC CHO USER MENU & AVATAR (MỚI) 👇
+        // ==========================================================
+
+        public void LoadUserAvatar()
+        {
+            string email = Preferences.Get("UserEmail", "");
+            if (!string.IsNullOrEmpty(email))
+            {
+                UserAvatarText = email.Substring(0, 1).ToUpper();
+            }
+            else
+            {
+                UserAvatarText = "?";
+            }
+        }
+
+        // 1. Bấm vào Avatar -> Bật/Tắt Menu
+        [RelayCommand]
+        public void TapUserAvatar()
+        {
+            IsUserMenuVisible = !IsUserMenuVisible;
+        }
+
+        // 2. Bấm vào nền mờ -> Đóng Menu
+        [RelayCommand]
+        public void CloseUserMenu()
+        {
+            IsUserMenuVisible = false;
+        }
+
+        // 3. Bấm vào "Thông tin cá nhân"
+        [RelayCommand]
+        public async Task OpenProfile()
+        {
+            IsUserMenuVisible = false; // Đóng menu trước
+            await Shell.Current.DisplayAlert("Cosmic Info", "Tính năng Hồ sơ đang phát triển!", "OK");
+        }
+
+        // 4. Bấm vào "Cài đặt"
+        [RelayCommand]
+        public async Task OpenSettings()
+        {
+            IsUserMenuVisible = false;
+            await Shell.Current.DisplayAlert("Cosmic Settings", "Tính năng Cài đặt đang phát triển!", "OK");
+        }
+
+        // 5. Bấm vào "Đăng xuất" (Sửa lại hàm cũ của bạn thành Public Command)
+        [RelayCommand]
+        public async Task PerformLogout()
+        {
+            IsUserMenuVisible = false; // Đóng menu trước
+
+            // Hỏi xác nhận
+            bool answer = await Shell.Current.DisplayAlert("Đăng xuất", "Bạn có chắc chắn muốn thoát vũ trụ không?", "Có", "Không");
+
+            if (answer)
+            {
+                // Xóa dữ liệu đăng nhập
+                Preferences.Clear();
+                // Quay về trang Login
+                await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+            }
         }
     }
 }
