@@ -59,6 +59,24 @@ public static class MauiProgram
         //--- --- NHÓM REGISTER ---
         builder.Services.AddTransient<RegisterPage>();
         builder.Services.AddTransient<RegisterViewModel>();
+        //---- --- NHÓM PREMIUM ---
+        builder.Services.AddTransient<PremiumPage>();
+        builder.Services.AddTransient<PremiumViewModel>();
+        // 👇 ĐĂNG KÝ TRANG HỒ SƠ & CHỈNH SỬA (MỚI) 👇
+        builder.Services.AddTransient<ProfilePage>();
+        builder.Services.AddTransient<ProfileViewModel>();
+
+        builder.Services.AddTransient<EditProfilePage>();
+        builder.Services.AddTransient<EditProfileViewModel>();
+        // password reset
+        builder.Services.AddTransient<SettingsPage>();
+
+        builder.Services.AddTransient<ChangePasswordPage>();
+        builder.Services.AddTransient<ChangePasswordViewModel>();
+        // 👇 ĐĂNG KÝ FIRESTORE SERVICE
+        builder.Services.AddSingleton<Services.FirestoreService>();
+
+        builder.Services.AddTransient<PremiumViewModel>();
 
 #if DEBUG
         builder.Logging.AddDebug();

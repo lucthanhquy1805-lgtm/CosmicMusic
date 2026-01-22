@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             x:Class="CosmicMusic.Views.EditProfilePage"
+             x:DataType="viewmodels:EditProfileViewModel"
+             BackgroundColor="#120520"
+             Title="Chỉnh sửa hồ sơ">
+
+    <Grid RowDefinitions="Auto, *" Padding="20">
+
+        <VerticalStackLayout Grid.Row="1" Spacing="25" VerticalOptions="Start" Margin="0,40,0,0">
+
+            <Label Text="Chỉnh sửa tên hiển thị" 
+                   TextColor="White" 
+                   FontSize="24" 
+                   FontAttributes="Bold" 
+                   HorizontalOptions="Center"/>
+
+            <Label Text="Tên này sẽ xuất hiện trên hồ sơ và danh sách phát công khai của bạn." 
+                   TextColor="#AAA" 
+                   FontSize="14" 
+                   HorizontalTextAlignment="Center"/>
+
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Tên hiển thị" TextColor="#CCC" FontAttributes="Bold"/>
+                <Border Stroke="#6C63FF" StrokeThickness="1" StrokeShape="RoundRectangle 10" BackgroundColor="#252535" HeightRequest="50" Padding="15,0">
+                    <Entry Text="{Binding NewName}" 
+                           Placeholder="Nhập tên mới" 
+                           TextColor="White" 
+                           VerticalOptions="Center"/>
+                </Border>
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="*, *" ColumnSpacing="15" Margin="0,20,0,0">
+                <Button Grid.Column="0" 
+                        Text="Hủy" 
+                        Command="{Binding CancelCommand}" 
+                        BackgroundColor="Transparent" 
+                        BorderColor="#FF4757" 
+                        BorderWidth="1" 
+                        TextColor="#FF4757"
+                        CornerRadius="25"
+                        HeightRequest="50"/>
+
+                <Button Grid.Column="1" 
+                        Text="Lưu tên mới" 
+                        Command="{Binding SaveChangesCommand}" 
+                        BackgroundColor="#6C63FF" 
+                        TextColor="White"
+                        CornerRadius="25"
+                        HeightRequest="50"
+                        FontAttributes="Bold"/>
+            </Grid>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#6C63FF"/>
+
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

@@ -4,12 +4,10 @@ namespace CosmicMusic.Views;
 
 public partial class PlayerPage : ContentPage
 {
-    // 👇 Phải có tham số viewModel ở đây
-    public PlayerPage(PlayerViewModel viewModel)
+    // 👇 Nhận AudioViewModel (Singleton hoặc Transient tùy setup)
+    public PlayerPage(AudioViewModel vm)
     {
         InitializeComponent();
-
-       
-        BindingContext = viewModel;
+        BindingContext = vm;
     }
 }

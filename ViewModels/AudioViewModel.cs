@@ -9,7 +9,6 @@ namespace CosmicMusic.ViewModels
     {
         public ObservableCollection<Song> Playlist { get; set; } = new();
 
-        // [ĐÃ SỬA] Cho phép null để tránh lỗi khởi tạo
         [ObservableProperty]
         private Song? _currentSong;
 
@@ -23,18 +22,20 @@ namespace CosmicMusic.ViewModels
         private double _volume = 1.0;
 
         // ==========================================================
-        // 1. LOGIC THỜI GIAN & TUA NHẠC (ĐÃ TỐI ƯU SLIDER)
+        // 1. LOGIC THỜI GIAN & TUA NHẠC (GIỮ NGUYÊN VÌ ĐÃ TỐI ƯU)
         // ==========================================================
 
-        // [ĐÃ SỬA] Bỏ Attribute NotifyPropertyChangedFor ở đây để kiểm soát thủ công
         [ObservableProperty]
         private TimeSpan _currentPosition;
 
-        // [MỚI] Hàm này được gọi tự động khi _currentPosition thay đổi
-        // Chúng ta dùng nó để chặn cập nhật Slider khi đang kéo
+        [ObservableProperty]
+        private bool _isDragging;
+
+        public event EventHandler RequestSeek;
+
+        // Tự động cập nhật Slider khi thời gian thay đổi (chỉ khi không kéo)
         partial void OnCurrentPositionChanged(TimeSpan value)
         {
-            // Nếu KHÔNG đang kéo chuột thì mới cập nhật Slider
             if (!IsDragging)
             {
                 OnPropertyChanged(nameof(CurrentPositionSeconds));
@@ -46,8 +47,6 @@ namespace CosmicMusic.ViewModels
             get => CurrentPosition.TotalSeconds;
             set
             {
-                // Chỉ cho phép cập nhật ngược lại TimeSpan khi người dùng đang kéo
-                // hoặc khi giá trị thay đổi đáng kể
                 if (IsDragging || Math.Abs(CurrentPosition.TotalSeconds - value) > 1)
                 {
                     CurrentPosition = TimeSpan.FromSeconds(value);
@@ -55,57 +54,34 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        [ObservableProperty]
-        private bool _isDragging;
-
-        public event EventHandler RequestSeek;
-
         [RelayCommand]
-        public void DragStarted()
-        {
-            IsDragging = true;
-        }
+        public void DragStarted() => IsDragging = true;
 
         [RelayCommand]
         public void DragCompleted()
         {
             IsDragging = false;
-            // Cập nhật lại vị trí hiển thị lần cuối cho chính xác
             OnPropertyChanged(nameof(CurrentPositionSeconds));
             RequestSeek?.Invoke(this, EventArgs.Empty);
         }
 
         // ==========================================================
-        // 2. LOGIC SHUFFLE & REPEAT
+        // 2. LOGIC SHUFFLE & REPEAT (ĐÃ TỐI ƯU CODE)
         // ==========================================================
 
+        // Dùng Attribute để tự động thông báo thay đổi màu sắc
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShuffleColor))]
         private bool _isShuffle;
-        public bool IsShuffle
-        {
-            get => _isShuffle;
-            set
-            {
-                if (SetProperty(ref _isShuffle, value))
-                {
-                    OnPropertyChanged(nameof(ShuffleColor));
-                }
-            }
-        }
+
         public string ShuffleColor => IsShuffle ? "#FF00CC" : "#FFFFFF"; // Hồng / Trắng
 
+        // 0: Off, 1: One, 2: All
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(RepeatColor))]
+        [NotifyPropertyChangedFor(nameof(RepeatIcon))]
         private int _repeatMode;
-        public int RepeatMode
-        {
-            get => _repeatMode;
-            set
-            {
-                if (SetProperty(ref _repeatMode, value))
-                {
-                    OnPropertyChanged(nameof(RepeatColor));
-                    OnPropertyChanged(nameof(RepeatIcon));
-                }
-            }
-        }
+
         public string RepeatColor => RepeatMode == 0 ? "#FFFFFF" : "#FF00CC";
         public string RepeatIcon => RepeatMode == 1 ? "🔂" : "🔁";
 
@@ -122,62 +98,55 @@ namespace CosmicMusic.ViewModels
         [RelayCommand]
         public void PlayPause()
         {
-            if (CurrentSong != null) // Chỉ toggle nếu đã có bài hát
-                IsPlaying = !IsPlaying;
+            if (CurrentSong != null) IsPlaying = !IsPlaying;
         }
 
-        // --- HÀM PLAY SONG ---
+        // --- HÀM PLAY SONG (ĐÃ THÊM THREAD SAFETY) ---
         public void PlaySong(Song song, ObservableCollection<Song>? contextList = null)
         {
             if (song == null) return;
 
-            // BƯỚC 1: ĐỒNG BỘ DANH SÁCH PHÁT
-            if (contextList != null && contextList.Count > 0)
+            // Đảm bảo cập nhật UI trên luồng chính
+            MainThread.BeginInvokeOnMainThread(() =>
             {
-                // [TỐI ƯU] Chỉ clear và add lại nếu danh sách thực sự khác nhau về số lượng
-                // hoặc bài đầu tiên khác nhau (đây là cách check nhanh)
-                bool needUpdate = Playlist.Count != contextList.Count;
-
-                if (!needUpdate && Playlist.Count > 0)
+                // BƯỚC 1: ĐỒNG BỘ DANH SÁCH PHÁT
+                if (contextList != null && contextList.Count > 0)
                 {
-                    // Check thêm bài đầu tiên để chắc chắn
-                    if (Playlist[0].Title != contextList[0].Title) needUpdate = true;
-                }
-
-                if (needUpdate)
-                {
-                    Playlist.Clear();
-                    foreach (var item in contextList)
+                    bool needUpdate = Playlist.Count != contextList.Count;
+                    if (!needUpdate && Playlist.Count > 0)
                     {
-                        Playlist.Add(item);
+                        if (Playlist[0].Title != contextList[0].Title) needUpdate = true;
+                    }
+
+                    if (needUpdate)
+                    {
+                        Playlist.Clear();
+                        foreach (var item in contextList) Playlist.Add(item);
                     }
                 }
-            }
-            else if (!Playlist.Contains(song))
-            {
-                Playlist.Add(song);
-            }
+                else if (!Playlist.Contains(song))
+                {
+                    Playlist.Add(song);
+                }
 
-            // BƯỚC 2: TÌM BÀI HÁT
-            var songInPlaylist = Playlist.FirstOrDefault(s => s.Title == song.Title && s.Artist == song.Artist);
-            var targetSong = songInPlaylist ?? song;
+                // BƯỚC 2: TÌM BÀI HÁT & PLAY
+                // Tìm bài hát tương ứng trong Playlist hiện tại để đảm bảo object reference đúng
+                var targetSong = Playlist.FirstOrDefault(s => s.Title == song.Title && s.Artist == song.Artist) ?? song;
 
-            // BƯỚC 3: XỬ LÝ PHÁT NHẠC
-            if (CurrentSong == targetSong)
-            {
-                // Nếu đang phát bài này rồi -> Reset về 0
+                if (CurrentSong == targetSong)
+                {
+                    CurrentPosition = TimeSpan.Zero;
+                    OnPropertyChanged(nameof(CurrentPositionSeconds));
+                    IsPlaying = true;
+                    return;
+                }
+
+                IsDragging = false;
                 CurrentPosition = TimeSpan.Zero;
-                OnPropertyChanged(nameof(CurrentPositionSeconds)); // Cập nhật lại slider về 0
+                Duration = TimeSpan.Zero;
+                CurrentSong = targetSong;
                 IsPlaying = true;
-                return;
-            }
-
-            // Bài mới hoàn toàn
-            IsDragging = false; // Reset trạng thái kéo đề phòng bị kẹt
-            CurrentPosition = TimeSpan.Zero;
-            Duration = TimeSpan.Zero;
-            CurrentSong = targetSong;
-            IsPlaying = true;
+            });
         }
 
         [RelayCommand]
@@ -185,7 +154,7 @@ namespace CosmicMusic.ViewModels
         {
             if (CurrentSong == null || Playlist.Count == 0) return;
 
-            // Ưu tiên 1: Repeat One
+            // TH1: Repeat One -> Tua lại từ đầu
             if (RepeatMode == 1)
             {
                 CurrentPosition = TimeSpan.Zero;
@@ -193,26 +162,48 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
-            // Ưu tiên 2: Shuffle
-            if (IsShuffle)
+            // TH2: Shuffle -> Random (Tránh bài hiện tại)
+            if (IsShuffle && Playlist.Count > 1)
             {
                 var random = new Random();
-                int randomIndex = random.Next(Playlist.Count);
+                int currentIndex = Playlist.IndexOf(CurrentSong);
+                int randomIndex;
+                do
+                {
+                    randomIndex = random.Next(Playlist.Count);
+                } while (randomIndex == currentIndex); // Lặp lại nếu random trúng bài đang nghe
+
                 PlaySong(Playlist[randomIndex]);
                 return;
             }
 
-            // Ưu tiên 3: Normal
+            // TH3: Normal / Repeat All
             int index = Playlist.IndexOf(CurrentSong);
+
             if (index < Playlist.Count - 1)
             {
+                // Chưa hết danh sách -> Bài tiếp theo
                 PlaySong(Playlist[index + 1]);
             }
             else
             {
-                // Hết danh sách -> Quay về đầu
-                PlaySong(Playlist[0]);
+                // Hết danh sách
+                if (RepeatMode == 2) // Nếu Repeat All -> Quay về đầu
+                {
+                    PlaySong(Playlist[0]);
+                }
+                else // Repeat Off -> Dừng lại hoặc Pause (tùy logic app, ở đây mình cho dừng)
+                {
+                    IsPlaying = false;
+                    CurrentPosition = TimeSpan.Zero;
+                }
             }
+        }
+        [RelayCommand]
+        public async Task GoBack()
+        {
+            // Quay lại trang trước (thường là Home)
+            await Shell.Current.GoToAsync("..");
         }
 
         [RelayCommand]
@@ -220,7 +211,7 @@ namespace CosmicMusic.ViewModels
         {
             if (CurrentSong == null || Playlist.Count == 0) return;
 
-            // Nếu nghe quá 3s -> Về đầu bài
+            // Nếu nghe quá 3s -> Về đầu bài hiện tại
             if (CurrentPosition.TotalSeconds > 3)
             {
                 CurrentPosition = TimeSpan.Zero;
@@ -228,11 +219,25 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
+            // Shuffle bật thì Previous cũng nên random (hoặc logic stack lịch sử, nhưng random cho đơn giản)
+            if (IsShuffle && Playlist.Count > 1)
+            {
+                var random = new Random();
+                int randomIndex = random.Next(Playlist.Count);
+                PlaySong(Playlist[randomIndex]);
+                return;
+            }
+
             int index = Playlist.IndexOf(CurrentSong);
             if (index > 0)
+            {
                 PlaySong(Playlist[index - 1]);
+            }
             else
+            {
+                // Đang ở bài đầu -> Về bài cuối
                 PlaySong(Playlist[Playlist.Count - 1]);
+            }
         }
     }
 }

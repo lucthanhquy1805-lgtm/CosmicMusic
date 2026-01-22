@@ -16,6 +16,11 @@
             <x:String x:Key="IconUserOutline">M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z</x:String>
             <x:String x:Key="IconSettings">M19.14,12.94C19.17,12.64 19.2,12.32 19.2,12C19.2,11.68 19.17,11.36 19.14,11.06L21.16,9.38C21.34,9.23 21.4,8.97 21.28,8.77L19.37,5.46C19.25,5.25 19,5.17 18.77,5.25L16.39,6.25C15.89,5.85 15.35,5.5 14.77,5.24L14.41,2.6C14.38,2.37 14.18,2.2 13.95,2.2H10.05C9.82,2.2 9.62,2.37 9.59,2.6L9.23,5.24C8.65,5.5 8.11,5.85 7.61,6.25L5.23,5.25C5,5.17 4.75,5.25 4.63,5.46L2.72,8.77C2.6,8.97 2.66,9.23 2.84,9.38L4.86,11.06C4.83,11.36 4.8,11.68 4.8,12C4.8,12.32 4.83,12.64 4.86,12.94L2.84,14.62C2.66,14.77 2.6,15.03 2.72,15.23L4.63,18.54C4.75,18.75 5,18.83 5.23,18.75L7.61,17.75C8.11,18.15 8.65,18.5 9.23,18.76L9.59,21.4C9.62,21.63 9.82,21.8 10.05,21.8H13.95C14.18,21.8 14.38,21.63 14.41,21.4L14.77,18.76C15.35,18.5 15.89,18.15 16.39,17.75L18.77,18.75C19,18.83 19.25,18.75 19.37,18.54L21.28,15.23C21.4,15.03 21.34,14.77 21.16,14.62L19.14,12.94M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5Z</x:String>
             <x:String x:Key="IconLogout">M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z</x:String>
+
+            <x:String x:Key="IconPlus">M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z</x:String>
+            <x:String x:Key="IconLightning">M7,2V11H3L13,21V11H17L7,2Z</x:String>
+            <x:String x:Key="IconChart">M16,11.78L20.24,4.45L21.97,5.45L16.74,14.5L10.23,10.75L5.46,19H22V21H2V19L10.23,4.75L16,11.78Z</x:String>
+            <x:String x:Key="IconClock">M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z</x:String>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -41,7 +46,7 @@
                             StrokeShape="RoundRectangle 25" 
                             StrokeThickness="2"
                             Stroke="#33FFFFFF"
-                            BackgroundColor="#6C63FF" 
+                            BackgroundColor="{Binding AvatarBorderColor}" 
                             HeightRequest="50" 
                             WidthRequest="50"
                             HorizontalOptions="Start">
@@ -224,60 +229,101 @@
 
         </Grid>
 
-        <Grid BackgroundColor="#80000000" IsVisible="{Binding IsUserMenuVisible}">
+        <Grid BackgroundColor="#AA000000" IsVisible="{Binding IsUserMenuVisible}">
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding CloseUserMenuCommand}"/>
             </Grid.GestureRecognizers>
         </Grid>
 
         <Border IsVisible="{Binding IsUserMenuVisible}"
-            VerticalOptions="Start" HorizontalOptions="Start"
-            Margin="20,75,0,0" 
-            WidthRequest="200"
-            StrokeShape="RoundRectangle 15"
-            Stroke="#33FFFFFF"
-            StrokeThickness="1">
-
-            <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="#2A0E45" Offset="0.0" />
-                    <GradientStop Color="#100520" Offset="1.0" />
-                </LinearGradientBrush>
-            </Border.Background>
+            HorizontalOptions="Start" 
+            VerticalOptions="Fill"
+            WidthRequest="320" 
+            BackgroundColor="#120520"
+            StrokeThickness="0">
 
             <Border.Shadow>
-                <Shadow Brush="#6C63FF" Offset="0,5" Radius="15" Opacity="0.3"/>
+                <Shadow Brush="Black" Offset="5,0" Radius="20" Opacity="0.8"/>
             </Border.Shadow>
 
-            <VerticalStackLayout Padding="0" Spacing="0">
-                <Grid ColumnDefinitions="40, *" Padding="15,12">
-                    <Path Grid.Column="0" Data="{StaticResource IconUserOutline}" Fill="#A569F7" Aspect="Uniform" HeightRequest="20" HorizontalOptions="Start"/>
-                    <Label Grid.Column="1" Text="Thông tin" TextColor="White" FontFamily="MontserratRegular" VerticalOptions="Center"/>
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding OpenProfileCommand}"/>
-                    </Grid.GestureRecognizers>
+            <Grid RowDefinitions="Auto, *, Auto" Padding="25,40,20,30">
+
+                <Grid Grid.Row="0" ColumnDefinitions="60, *" ColumnSpacing="15" Margin="0,0,0,30">
+                    <Border Grid.Column="0" StrokeShape="RoundRectangle 30" StrokeThickness="2" Stroke="#FFD700" BackgroundColor="{Binding AvatarBorderColor}" HeightRequest="60" WidthRequest="60">
+                        <Label Text="{Binding UserAvatarText}" TextColor="White" FontSize="26" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"/>
+                    </Border>
+
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                        <Label Text="{Binding UserName}" 
+                               TextColor="White" 
+                               FontSize="20" 
+                               FontFamily="MontserratBold"/>
+
+                        <Label Text="Xem hồ sơ" TextColor="#AAA" FontSize="13">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenProfileCommand}"/>
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </VerticalStackLayout>
                 </Grid>
 
-                <BoxView HeightRequest="1" Color="#22FFFFFF" Margin="10,0"/>
+                <ScrollView Grid.Row="1">
+                    <VerticalStackLayout Spacing="25">
 
-                <Grid ColumnDefinitions="40, *" Padding="15,12">
-                    <Path Grid.Column="0" Data="{StaticResource IconSettings}" Fill="#A569F7" Aspect="Uniform" HeightRequest="20" HorizontalOptions="Start"/>
-                    <Label Grid.Column="1" Text="Cài đặt" TextColor="White" FontFamily="MontserratRegular" VerticalOptions="Center"/>
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding OpenSettingsCommand}"/>
-                    </Grid.GestureRecognizers>
-                </Grid>
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
+                            <Path Grid.Column="0" Data="{StaticResource IconPlus}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
+                            <Label Grid.Column="1" Text="Thêm tài khoản" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding AddAccountCommand}"/>
+                            </Grid.GestureRecognizers>
+                        </Grid>
 
-                <BoxView HeightRequest="1" Color="#22FFFFFF" Margin="10,0"/>
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
+                            <Path Grid.Column="0" Data="{StaticResource IconLightning}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
+                            <Label Grid.Column="1" Text="Có gì mới" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenWhatsNewCommand}"/>
+                            </Grid.GestureRecognizers>
+                        </Grid>
 
-                <Grid ColumnDefinitions="40, *" Padding="15,12">
-                    <Path Grid.Column="0" Data="{StaticResource IconLogout}" Fill="#FF4757" Aspect="Uniform" HeightRequest="20" HorizontalOptions="Start"/>
-                    <Label Grid.Column="1" Text="Đăng xuất" TextColor="#FF4757" FontFamily="MontserratBold" VerticalOptions="Center"/>
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding PerformLogoutCommand}"/>
-                    </Grid.GestureRecognizers>
-                </Grid>
-            </VerticalStackLayout>
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
+                            <Path Grid.Column="0" Data="{StaticResource IconChart}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
+                            <Label Grid.Column="1" Text="Số liệu hoạt động nghe" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenStatsCommand}"/>
+                            </Grid.GestureRecognizers>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
+                            <Path Grid.Column="0" Data="{StaticResource IconClock}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
+                            <Label Grid.Column="1" Text="Gần đây" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenHistoryCommand}"/>
+                            </Grid.GestureRecognizers>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
+                            <Path Grid.Column="0" Data="{StaticResource IconSettings}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
+                            <Label Grid.Column="1" Text="Cài đặt và quyền riêng tư" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenSettingsCommand}"/>
+                            </Grid.GestureRecognizers>
+                        </Grid>
+
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <Button Grid.Row="2" 
+                    Text="Đăng xuất" 
+                    Command="{Binding PerformLogoutCommand}"
+                    BackgroundColor="#2A2A40"
+                    TextColor="White"
+                    FontFamily="MontserratBold"
+                    CornerRadius="25"
+                    HeightRequest="50"
+                    Margin="0,20,0,0"/>
+
+            </Grid>
         </Border>
 
     </Grid>

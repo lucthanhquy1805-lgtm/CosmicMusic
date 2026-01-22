@@ -12,7 +12,7 @@ namespace CosmicMusic
 
         // 👇 HÃY DÁN API KEY BẠN VỪA COPY TỪ FIREBASE CONSOLE VÀO ĐÂY
         public const string FirebaseApiKey = "AIzaSyDPUF_xVA9cF7T91vH-Q0J8RxDDE5sqK0M";
-
+        public const string ProjectId = "cosmicmusic-50df6";
         // ============================================================
         // 2. CẤU HÌNH SQLITE (GIỮ NGUYÊN CŨ)
         // ============================================================

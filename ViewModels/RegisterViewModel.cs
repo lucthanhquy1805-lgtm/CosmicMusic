@@ -1,8 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CosmicMusic.Services; // 👇 Nhớ namespace này
 using CosmicMusic.Views;
-using System.Text;          // <-- Kiểm tra kỹ dòng này
-using System.Text.Json;     // <-- Và dòng này
+using System.Text;
+using System.Text.Json;
 
 namespace CosmicMusic.ViewModels
 {
@@ -14,83 +15,71 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private string _confirmPassword;
         [ObservableProperty] private bool _isBusy;
 
-        // Biến để ẩn/hiện mật khẩu (cho icon con mắt)
-        [ObservableProperty] private bool _isPasswordHidden = true;
-
         private readonly HttpClient _httpClient;
+        private readonly FirestoreService _firestoreService; // 👇 1. Khai báo Service
 
-        public RegisterViewModel()
+        // 👇 2. Tiêm FirestoreService
+        public RegisterViewModel(FirestoreService firestoreService)
         {
             _httpClient = new HttpClient();
-        }
-
-        [RelayCommand]
-        public void TogglePasswordVisibility()
-        {
-            IsPasswordHidden = !IsPasswordHidden;
+            _firestoreService = firestoreService;
         }
 
         [RelayCommand]
         public async Task Register()
         {
-            // 1. Kiểm tra nhập liệu
+            // Validate đầu vào
             if (string.IsNullOrWhiteSpace(FullName) || string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
             {
-                await Shell.Current.DisplayAlert("Lỗi", "Vui lòng điền đầy đủ thông tin!", "OK");
+                await Shell.Current.DisplayAlert("Lỗi", "Vui lòng nhập đầy đủ thông tin", "OK");
                 return;
             }
 
             if (Password != ConfirmPassword)
             {
-                await Shell.Current.DisplayAlert("Lỗi", "Mật khẩu xác nhận không khớp!", "OK");
-                return;
-            }
-
-            if (Password.Length < 6)
-            {
-                await Shell.Current.DisplayAlert("Lỗi", "Mật khẩu phải dài hơn 6 ký tự!", "OK");
+                await Shell.Current.DisplayAlert("Lỗi", "Mật khẩu xác nhận không khớp", "OK");
                 return;
             }
 
             IsBusy = true;
-
             try
             {
-                // 2. GỬI YÊU CẦU "SIGN UP" LÊN GOOGLE (Endpoint khác với Login)
+                // A. TẠO TÀI KHOẢN BÊN AUTHENTICATION (Cũ)
                 string apiKey = Constants.FirebaseApiKey;
                 string url = $"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={apiKey}";
 
-                var payload = new
-                {
-                    email = Email,
-                    password = Password,
-                    returnSecureToken = true
-                };
-
-                string jsonPayload = JsonSerializer.Serialize(payload);
-                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                var payload = new { email = Email, password = Password, returnSecureToken = true };
+                var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
                 var response = await _httpClient.PostAsync(url, content);
                 string responseString = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // === ĐĂNG KÝ THÀNH CÔNG ===
-                    // (Tạm thời chúng ta chưa lưu FullName lên Server để đơn giản hóa,
-                    // chỉ cần tạo tài khoản thành công là được)
+                    // Lấy UID vừa tạo
+                    var result = JsonSerializer.Deserialize<FirebaseAuthResult>(responseString);
+                    string uid = result.localId;
+                    string idToken = result.idToken;
 
-                    bool answer = await Shell.Current.DisplayAlert("Thành công", "Tài khoản đã được tạo! Hãy đăng nhập ngay.", "Đăng nhập", "Ở lại");
+                    // ==========================================================
+                    // 👇 B. LƯU HỒ SƠ SANG FIRESTORE (MỚI) 👇
+                    // ==========================================================
 
-                    if (answer)
-                    {
-                        // Quay về trang Login
-                        await Shell.Current.GoToAsync("..");
-                    }
+                    // Lưu ngay Tên thật + VIP = false (Mặc định)
+                    await _firestoreService.UpdateUserAsync(uid, Email, FullName, false);
+
+                    // C. CẬP NHẬT DISPLAY NAME CHO AUTHENTICATION (Để đồng bộ cả 2 bên)
+                    await UpdateAuthDisplayName(idToken, FullName);
+
+                    await Shell.Current.DisplayAlert("Thành công", "Tài khoản đã được khởi tạo trên hệ thống đám mây!", "Đăng nhập ngay");
+
+                    // Quay về trang đăng nhập
+                    await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
                 }
                 else
                 {
-                    // === LỖI TỪ GOOGLE (VD: Email đã tồn tại) ===
-                    await Shell.Current.DisplayAlert("Đăng ký thất bại", "Email này có thể đã được sử dụng.", "OK");
+                    // Parse lỗi từ Firebase để báo chi tiết hơn (ví dụ: Email tồn tại)
+                    await Shell.Current.DisplayAlert("Lỗi", "Đăng ký thất bại. Email có thể đã được sử dụng.", "OK");
                 }
             }
             catch (Exception ex)
@@ -103,11 +92,22 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        [RelayCommand]
-        public async Task NavigateBackToLogin()
+        // Hàm phụ: Cập nhật tên hiển thị bên Auth (cho đủ bộ)
+        private async Task UpdateAuthDisplayName(string idToken, string name)
         {
-            // Quay lại trang cũ
-            await Shell.Current.GoToAsync("..");
+            try
+            {
+                string url = $"https://identitytoolkit.googleapis.com/v1/accounts:update?key={Constants.FirebaseApiKey}";
+                var payload = new { idToken = idToken, displayName = name, returnSecureToken = false };
+                await _httpClient.PostAsync(url, new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+            }
+            catch { /* Lỗi cập nhật tên phụ không quan trọng lắm, bỏ qua */ }
+        }
+
+        [RelayCommand]
+        public async Task NavigateToLogin()
+        {
+            await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
         }
     }
 }

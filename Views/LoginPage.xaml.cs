@@ -4,11 +4,13 @@ namespace CosmicMusic.Views;
 
 public partial class LoginPage : ContentPage
 {
-    public LoginPage()
+    // 👇 SỬA LẠI CONSTRUCTOR NHƯ SAU:
+    // Nhận LoginViewModel từ bên ngoài vào (Hệ thống sẽ tự lo phần FirestoreService)
+    public LoginPage(LoginViewModel vm)
     {
         InitializeComponent();
 
-        // 👇 KẾT NỐI VIEW VỚI VIEWMODEL
-        this.BindingContext = new LoginViewModel();
+        // Gán ViewModel đã được tạo sẵn vào BindingContext
+        BindingContext = vm;
     }
 }

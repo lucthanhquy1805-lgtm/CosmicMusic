@@ -1,8 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CosmicMusic.Services; // 👇 Nhớ namespace này
 using CosmicMusic.Views;
 using System.Text;
-using System.Text.Json; // 👇 Dùng thư viện có sẵn của .NET
+using System.Text.Json;
 
 namespace CosmicMusic.ViewModels
 {
@@ -18,10 +19,13 @@ namespace CosmicMusic.ViewModels
         private bool _isBusy;
 
         private readonly HttpClient _httpClient;
+        private readonly FirestoreService _firestoreService; // 👇 1. Khai báo dịch vụ Firestore
 
-        public LoginViewModel()
+        // 👇 2. Tiêm FirestoreService vào Constructor
+        public LoginViewModel(FirestoreService firestoreService)
         {
             _httpClient = new HttpClient();
+            _firestoreService = firestoreService;
         }
 
         [RelayCommand]
@@ -36,7 +40,7 @@ namespace CosmicMusic.ViewModels
             IsBusy = true;
             try
             {
-                // 1. GỬI LỆNH ĐĂNG NHẬP TRỰC TIẾP LÊN GOOGLE
+                // A. ĐĂNG NHẬP (FIREBASE AUTH)
                 string apiKey = Constants.FirebaseApiKey;
                 string url = $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={apiKey}";
 
@@ -50,44 +54,69 @@ namespace CosmicMusic.ViewModels
                 string jsonPayload = JsonSerializer.Serialize(payload);
                 var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-                // 2. NHẬN KẾT QUẢ
                 var response = await _httpClient.PostAsync(url, content);
                 string responseString = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // === THÀNH CÔNG ===
+                    // === ĐĂNG NHẬP THÀNH CÔNG ===
                     var result = JsonSerializer.Deserialize<FirebaseAuthResult>(responseString);
 
-                    // Tạo User
-                    var user = new CosmicMusic.Models.User
-                    {
-                        Uid = result.localId,
-                        Email = result.email,
-                        DisplayName = result.displayName ?? "Cosmic Traveler"
-                    };
+                    string uid = result.localId;
+                    string email = result.email;
+                    string displayName = result.displayName ?? "Cosmic Traveler";
+                    string idToken = result.idToken;
+                    bool isPremium = false;
 
-                    // Phân quyền Admin
-                    if (user.Email.ToLower().Contains("admin"))
+                    // ==========================================================
+                    // 👇 B. ĐỒNG BỘ DỮ LIỆU TỪ FIRESTORE (ĐÁM MÂY) 👇
+                    // ==========================================================
+
+                    // 1. Hỏi Firestore: "Ông này có thông tin gì trên mây chưa?"
+                    var firestoreUser = await _firestoreService.GetUserInfoAsync(uid);
+
+                    if (firestoreUser != null)
                     {
-                        user.IsPremium = true;
+                        // TRƯỜNG HỢP 1: ĐÃ CÓ DỮ LIỆU TRÊN MÂY
+                        // -> Lấy thông tin VIP và Tên từ trên mây về máy
+                        isPremium = firestoreUser.IsPremium;
+
+                        // Nếu trên mây có tên đẹp hơn (đã đổi) thì lấy tên đó
+                        if (!string.IsNullOrEmpty(firestoreUser.DisplayName))
+                        {
+                            displayName = firestoreUser.DisplayName;
+                        }
                     }
                     else
                     {
-                        user.IsPremium = false;
+                        // TRƯỜNG HỢP 2: NGƯỜI DÙNG MỚI (Hoặc chưa có data trên mây)
+                        // -> Kiểm tra xem có phải Admin không (logic cũ)
+                        if (email.ToLower().Contains("admin")) isPremium = true;
+
+                        // -> LƯU NGAY LÊN MÂY để lần sau đăng nhập còn nhớ
+                        await _firestoreService.UpdateUserAsync(uid, email, displayName, isPremium);
                     }
 
-                    // Lưu thông tin
-                    Preferences.Set("IsPremium", user.IsPremium);
-                    Preferences.Set("UserEmail", user.Email);
+                    // ==========================================================
+                    // 👇 C. LƯU VÀO MÁY (LOCAL PREFERENCES) ĐỂ DÙNG 👇
+                    // ==========================================================
+
+                    Preferences.Set("AuthToken", idToken);
+                    Preferences.Set("UserEmail", email);
+                    Preferences.Set("UserName", displayName);
+                    Preferences.Set("IsPremium", isPremium);
+
+                    Preferences.Set("UserId", uid);
+
+                    // Xóa các key "VIP_..." cũ kỹ đi vì giờ ta đã có Firestore xịn rồi
+                    // (Hoặc giữ lại làm kỷ niệm cũng được, không ảnh hưởng)
 
                     // Vào App
                     await Shell.Current.GoToAsync($"//{nameof(HomePage)}");
                 }
                 else
                 {
-                    // === THẤT BẠI ===
-                    await Shell.Current.DisplayAlert("Đăng nhập thất bại", "Kiểm tra lại Email/Pass", "OK");
+                    await Shell.Current.DisplayAlert("Đăng nhập thất bại", "Email hoặc mật khẩu không đúng!", "Thử lại");
                 }
             }
             catch (Exception ex)
@@ -107,7 +136,6 @@ namespace CosmicMusic.ViewModels
         }
     }
 
-    // Class hứng dữ liệu (Copy vào cuối file LoginViewModel.cs luôn cũng được)
     public class FirebaseAuthResult
     {
         public string localId { get; set; }
