@@ -1,7 +1,6 @@
 ﻿using CommunityToolkit.Maui;
-using CommunityToolkit.Maui.Views;
-using CosmicMusic.Services;
 using Microsoft.Extensions.Logging;
+using CosmicMusic.Services;
 using CosmicMusic.ViewModels;
 using CosmicMusic.Views;
 
@@ -14,7 +13,9 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            // 👇 Bắt buộc có để dùng Behavior, Converter
             .UseMauiCommunityToolkit()
+            // 👇 Bắt buộc có để dùng Video/Audio
             .UseMauiCommunityToolkitMediaElement()
             .ConfigureFonts(fonts =>
             {
@@ -24,59 +25,66 @@ public static class MauiProgram
                 fonts.AddFont("Montserrat-Regular.ttf", "MontserratRegular");
             });
 
-        // ==========================================
-        // ĐĂNG KÝ SERVICE TẠI ĐÂY
-        // ==========================================
+        // =================================================================
+        // 1. ĐĂNG KÝ SERVICES (Singleton: Sống suốt vòng đời App)
+        // =================================================================
+        builder.Services.AddSingleton<FirestoreService>();
         builder.Services.AddSingleton<DatabaseService>();
         builder.Services.AddSingleton<MusicApiService>();
+
+        // AudioViewModel phải là Singleton
         builder.Services.AddSingleton<AudioViewModel>();
 
-        // Lưu ý: AppShell thường không cần AddSingleton trừ khi bạn Inject nó, 
-        // nhưng để đây cũng không sao.
         builder.Services.AddSingleton<AppShell>();
 
-        // --- NHÓM SEARCH (Phải có đủ cả ViewModel và Page) ---
-        builder.Services.AddTransient<SearchViewModel>();
-        builder.Services.AddTransient<SearchPage>(); // 👈 BẠN BỊ THIẾU DÒNG NÀY
+        // =================================================================
+        // 2. ĐĂNG KÝ PAGES & VIEWMODELS
+        // =================================================================
 
         // --- NHÓM HOME ---
         builder.Services.AddTransient<HomeViewModel>();
         builder.Services.AddTransient<HomePage>();
 
-        // --- NHÓM PLAYER ---
-        builder.Services.AddTransient<PlayerViewModel>();
-        builder.Services.AddTransient<PlayerPage>();
+        // --- NHÓM SEARCH ---
+        builder.Services.AddTransient<SearchViewModel>();
+        builder.Services.AddTransient<SearchPage>();
+
+        // --- NHÓM PLAYER (QUAN TRỌNG: ĐÃ SỬA THÀNH SINGLETON) ---
+        // 👇👇👇 SỬA DÒNG NÀY ĐỂ HẾT LỖI CHỒNG NHẠC 👇👇👇
+        builder.Services.AddSingleton<PlayerPage>();
+
+        builder.Services.AddTransient<PlayerViewModel>(); // ViewModel phụ này Transient cũng được
 
         // --- NHÓM LIBRARY ---
         builder.Services.AddTransient<LibraryViewModel>();
         builder.Services.AddTransient<LibraryPage>();
+
         // --- NHÓM ALBUM DETAIL ---
         builder.Services.AddTransient<AlbumDetailViewModel>();
         builder.Services.AddTransient<AlbumDetailPage>();
-        //---- --- NHÓM LOGIN ---
-        builder.Services.AddTransient<LoginPage>();
+
+        // --- NHÓM TÀI KHOẢN ---
         builder.Services.AddTransient<LoginViewModel>();
-        //--- --- NHÓM REGISTER ---
-        builder.Services.AddTransient<RegisterPage>();
+        builder.Services.AddTransient<LoginPage>();
+
         builder.Services.AddTransient<RegisterViewModel>();
-        //---- --- NHÓM PREMIUM ---
-        builder.Services.AddTransient<PremiumPage>();
-        builder.Services.AddTransient<PremiumViewModel>();
-        // 👇 ĐĂNG KÝ TRANG HỒ SƠ & CHỈNH SỬA (MỚI) 👇
-        builder.Services.AddTransient<ProfilePage>();
-        builder.Services.AddTransient<ProfileViewModel>();
+        builder.Services.AddTransient<RegisterPage>();
 
-        builder.Services.AddTransient<EditProfilePage>();
-        builder.Services.AddTransient<EditProfileViewModel>();
-        // password reset
-        builder.Services.AddTransient<SettingsPage>();
-
-        builder.Services.AddTransient<ChangePasswordPage>();
         builder.Services.AddTransient<ChangePasswordViewModel>();
-        // 👇 ĐĂNG KÝ FIRESTORE SERVICE
-        builder.Services.AddSingleton<Services.FirestoreService>();
+        builder.Services.AddTransient<ChangePasswordPage>();
 
+        // --- NHÓM HỒ SƠ ---
+        builder.Services.AddTransient<ProfileViewModel>();
+        builder.Services.AddTransient<ProfilePage>();
+
+        builder.Services.AddTransient<EditProfileViewModel>();
+        builder.Services.AddTransient<EditProfilePage>();
+
+        // --- NHÓM KHÁC ---
         builder.Services.AddTransient<PremiumViewModel>();
+        builder.Services.AddTransient<PremiumPage>();
+
+        builder.Services.AddTransient<SettingsPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

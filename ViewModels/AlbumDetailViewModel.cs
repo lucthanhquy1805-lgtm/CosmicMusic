@@ -1,107 +1,191 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using CosmicMusic.Models;
+using CosmicMusic.Services;
 using System.Collections.ObjectModel;
-using CosmicMusic.Views;
 
 namespace CosmicMusic.ViewModels
 {
-    [QueryProperty(nameof(AlbumData), "AlbumData")]
-    public partial class AlbumDetailViewModel : ObservableObject
+    public partial class AlbumDetailViewModel : ObservableObject, IQueryAttributable
     {
-        private readonly AudioViewModel _audioViewModel;
+        private readonly FirestoreService _firestoreService;
 
-        [ObservableProperty]
-        private Album _albumData;
+        // MiniPlayer cần cái này
+        [ObservableProperty] private AudioViewModel _audioPlayer;
+        [ObservableProperty] private bool _isBusy;
 
-        public ObservableCollection<Song> AlbumSongs { get; set; } = new();
+        // Dữ liệu hiển thị lên màn hình (Binding)
+        [ObservableProperty] private string _coverImage;  // Ảnh to đùng
+        [ObservableProperty] private string _mainTitle;   // Tên (VD: Cosmic Dream)
+        [ObservableProperty] private string _subTitle;    // Dòng dưới (VD: Album by Orion • 2023)
+        [ObservableProperty] private bool _isAlbumType;   // Để hiện nút Download/Add nếu cần
 
-        public AudioViewModel AudioPlayer => _audioViewModel;
+        // Dữ liệu nội bộ
+        private string _currentId;
+        private string _currentType;
 
-        public AlbumDetailViewModel(AudioViewModel audioViewModel)
+        public ObservableCollection<Song> Songs { get; } = new();
+
+        public AlbumDetailViewModel(FirestoreService firestoreService, AudioViewModel audioPlayer)
         {
-            _audioViewModel = audioViewModel;
+            _firestoreService = firestoreService;
+            AudioPlayer = audioPlayer;
         }
 
-        partial void OnAlbumDataChanged(Album value)
+        // 👇 HÀM NHẬN DỮ LIỆU TỪ TRANG KHÁC GỬI SANG
+        public async void ApplyQueryAttributes(IDictionary<string, object> query)
         {
-            if (value != null)
+            // 1. Nhận thông tin cơ bản
+            if (query.ContainsKey("Name")) MainTitle = query["Name"].ToString();
+            if (query.ContainsKey("Image")) CoverImage = query["Image"].ToString();
+
+            // 2. Nhận ID và Loại để biết xử lý
+            _currentId = query.ContainsKey("Id") ? query["Id"].ToString() : "";
+            _currentType = query.ContainsKey("Type") ? query["Type"].ToString() : CollectionType.Playlist;
+
+            // 3. Xử lý dòng phụ đề (Subtitle) cho chuyên nghiệp
+            if (_currentType == CollectionType.Playlist)
             {
-                LoadAlbumSongs(value);
+                // Nếu là Playlist thì hiện số bài
+                string count = query.ContainsKey("Description") ? query["Description"].ToString() : "0 songs";
+                SubTitle = $"Playlist • {count}";
+                IsAlbumType = false;
+            }
+            else if (_currentType == CollectionType.Album)
+            {
+                // Nếu là Album thì hiện: Album by [Artist] • [Year]
+                string artist = query.ContainsKey("Artist") ? query["Artist"].ToString() : "Unknown";
+                string year = query.ContainsKey("Year") ? query["Year"].ToString() : "2023";
+                SubTitle = $"Album by {artist} • {year}";
+                IsAlbumType = true;
+            }
+
+            // 4. Tải nhạc
+            await LoadSongs();
+        }
+
+        public async Task LoadSongs()
+        {
+            if (string.IsNullOrEmpty(_currentId)) return;
+            IsBusy = true;
+            Songs.Clear();
+            List<Song> fetchedSongs = new();
+
+            try
+            {
+                if (_currentType == CollectionType.Playlist)
+                {
+                    fetchedSongs = await _firestoreService.GetSongsFromPlaylist(_currentId);
+                }
+                // Sau này thêm logic lấy Album ở đây...
+
+                foreach (var s in fetchedSongs) Songs.Add(s);
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            finally { IsBusy = false; }
+        }
+
+        [RelayCommand]
+        public void PlaySong(Song song)
+        {
+            AudioPlayer.PlaySong(song, Songs);
+        }
+
+        [RelayCommand]
+        public async Task NavigateToPlayer() => await Shell.Current.GoToAsync("PlayerPage");
+
+        [RelayCommand]
+        public async Task GoBack() => await Shell.Current.GoToAsync("..");
+        // ... (Các hàm cũ giữ nguyên)
+
+        // 👇 THÊM HÀM NÀY ĐỂ NÚT "PLAY" HOẠT ĐỘNG
+        [RelayCommand]
+        public void PlayAll()
+        {
+            if (Songs.Count > 0)
+            {
+                // Phát bài đầu tiên và nạp cả danh sách vào hàng đợi
+                AudioPlayer.PlaySong(Songs[0], Songs);
             }
         }
 
-        private async void LoadAlbumSongs(Album album)
-        {
-            AlbumSongs.Clear();
-            // ... (Code giả lập dữ liệu giữ nguyên như cũ)
-            await Task.Delay(100);
-            AlbumSongs.Add(new Song { Title = "Stardust Echoes", Artist = album.Artist, Duration = 225, AudioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", CoverImage = album.CoverImage });
-            AlbumSongs.Add(new Song { Title = "Lunar Tides", Artist = album.Artist, Duration = 252, AudioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", CoverImage = album.CoverImage });
-            AlbumSongs.Add(new Song { Title = "Meteor Shower", Artist = album.Artist, Duration = 178, AudioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", CoverImage = album.CoverImage });
-            AlbumSongs.Add(new Song { Title = "Gravity's Pull", Artist = album.Artist, Duration = 210, AudioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", CoverImage = album.CoverImage });
-            AlbumSongs.Add(new Song { Title = "Void Walker", Artist = album.Artist, Duration = 301, AudioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3", CoverImage = album.CoverImage });
-        }
-
+        // (Tùy chọn) Thêm luôn hàm Shuffle để dùng cho nút bên cạnh
         [RelayCommand]
-        public async Task GoBack()
+        public void ShuffleAll()
         {
-            await Shell.Current.GoToAsync("..");
-        }
-
-        [RelayCommand]
-        public void PlayAlbum()
-        {
-            if (AlbumSongs.Count > 0)
+            if (Songs.Count > 0)
             {
-                _audioViewModel.PlaySong(AlbumSongs[0], AlbumSongs);
+                // Bật chế độ Shuffle trước
+                AudioPlayer.IsShuffle = true;
+
+                // Chọn ngẫu nhiên 1 bài để phát
+                var r = new Random();
+                var randomSong = Songs[r.Next(Songs.Count)];
+
+                AudioPlayer.PlaySong(randomSong, Songs);
+            }
+        }
+        // 👇 HÀM XỬ LÝ KHI BẤM VÀO 3 CHẤM 👇
+        [RelayCommand]
+        public async Task OpenOptionMenu(Song song)
+        {
+            if (song == null) return;
+
+            // 1. Hiện Menu từ dưới lên (Giống Spotify)
+            string action = "";
+
+            // Chỉ hiện nút "Xóa" nếu đây là Playlist (Album thì không cho xóa nhạc gốc)
+            if (_currentType == CollectionType.Playlist)
+            {
+                action = await Shell.Current.DisplayActionSheet(song.Title, "Hủy", "Xóa khỏi Playlist", "Chia sẻ", "Xem nghệ sĩ");
+            }
+            else
+            {
+                action = await Shell.Current.DisplayActionSheet(song.Title, "Hủy", null, "Chia sẻ", "Xem nghệ sĩ");
+            }
+
+            // 2. Xử lý các hành động
+            if (action == "Chia sẻ")
+            {
+                await Share.Default.RequestAsync(new ShareTextRequest
+                {
+                    Text = $"Đang nghe {song.Title} - {song.Artist} trên Cosmic Music!",
+                    Title = "Chia sẻ bài hát"
+                });
+            }
+            else if (action == "Xóa khỏi Playlist")
+            {
+                bool confirm = await Shell.Current.DisplayAlert("Xác nhận", "Bạn có chắc muốn xóa bài này?", "Xóa", "Hủy");
+                if (confirm)
+                {
+                    await DeleteSong(song);
+                }
             }
         }
 
-        [RelayCommand]
-        public void ShuffleAlbum()
+        private async Task DeleteSong(Song song)
         {
-            if (AlbumSongs.Count > 0)
+            IsBusy = true;
+
+            // 1. Xóa trên Server (Firestore)
+            await _firestoreService.RemoveSongFromPlaylist(_currentId, song);
+
+            // 2. Xóa trên Giao diện (App) ngay lập tức
+            Songs.Remove(song);
+
+            // 3. Cập nhật lại dòng phụ đề (Số lượng bài hát)
+            if (_currentType == CollectionType.Playlist)
             {
-                _audioViewModel.IsShuffle = true;
-                _audioViewModel.PlaySong(AlbumSongs[0], AlbumSongs);
+                SubTitle = $"Playlist • {Songs.Count} songs";
             }
-        }
 
-        [RelayCommand]
-        public async Task PlaySong(Song song)
-        {
-            _audioViewModel.PlaySong(song, AlbumSongs);
-            await NavigateToPlayer(); // Gọi hàm chung bên dưới để đỡ lặp code
-        }
+            // 4. (Quan trọng) Gửi tin nhắn để trang Library bên ngoài cũng cập nhật lại số lượng
+            // Dùng Messenger để báo: "Hey Library, reload đi!"
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
 
-        // 👇👇👇 THÊM HÀM MỚI NÀY ĐỂ SỬA LỖI MINI PLAYER 👇👇👇
-        [RelayCommand]
-        public async Task NavigateToPlayer()
-        {
-            // Nếu không có bài nào đang hát thì không làm gì cả
-            if (_audioViewModel.CurrentSong == null) return;
-
-            // Lấy bài đang hát hiện tại
-            var currentSong = _audioViewModel.CurrentSong;
-
-            // Đóng gói dữ liệu để gửi sang trang Player
-            var libraryItem = new LibraryItem
-            {
-                Title = currentSong.Title,
-                Subtitle = currentSong.Artist,
-                CoverImage = currentSong.CoverImage,
-                Url = currentSong.AudioUrl,
-                ImageColor = "#120520"
-            };
-
-            var navigationParameter = new Dictionary<string, object>
-            {
-                { "SongData", libraryItem }
-            };
-
-            // Chuyển trang
-            await Shell.Current.GoToAsync(nameof(PlayerPage), navigationParameter);
+            IsBusy = false;
         }
     }
 }
+    

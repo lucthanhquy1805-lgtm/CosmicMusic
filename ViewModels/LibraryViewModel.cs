@@ -1,141 +1,155 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging; // 👈 1. QUAN TRỌNG: Thêm thư viện này
 using System.Collections.ObjectModel;
-using CosmicMusic.Views;
 using CosmicMusic.Services;
-using CosmicMusic.Models; // 👈 1. Thêm cái này để dùng được class Song
+using CosmicMusic.Models;
+using CosmicMusic.Views;
 
-namespace CosmicMusic.ViewModels;
-
-public partial class LibraryViewModel : ObservableObject
+namespace CosmicMusic.ViewModels
 {
-    private readonly MusicApiService _musicService;
-
-    // 👇 2. Khai báo AudioViewModel để điều khiển phát nhạc
-    private readonly AudioViewModel _audioViewModel;
-    public AudioViewModel AudioPlayer => _audioViewModel;
-
-    public ObservableCollection<string> Categories { get; } = new();
-    public ObservableCollection<LibraryItem> LibraryItems { get; } = new();
-
-    // 👇 3. Inject AudioViewModel vào Constructor
-    public LibraryViewModel(MusicApiService musicService, AudioViewModel audioViewModel)
+    public partial class LibraryViewModel : ObservableObject
     {
-        _musicService = musicService;
-        _audioViewModel = audioViewModel; // Lưu lại để dùng
-        LoadData();
-    }
+        private readonly FirestoreService _firestoreService;
 
-    private async void LoadData()
-    {
-        Categories.Clear();
-        Categories.Add("Playlists");
-        Categories.Add("Artists");
-        Categories.Add("Albums");
-        Categories.Add("Podcasts");
+        // Biến này để MiniPlayer Binding dữ liệu (Tên bài, Ảnh, Play/Pause...)
+        [ObservableProperty]
+        private AudioViewModel _audioPlayer;
 
-        LibraryItems.Clear();
+        // Danh sách Playlist hiển thị lên màn hình
+        public ObservableCollection<Playlist> UserPlaylists { get; } = new();
 
-        try
+        [ObservableProperty]
+        private bool _isBusy;
+
+        public LibraryViewModel(FirestoreService firestoreService, AudioViewModel audioViewModel)
         {
-            var songs = await _musicService.GetSongsAsync();
+            _firestoreService = firestoreService;
+            AudioPlayer = audioViewModel; // Lưu lại AudioViewModel để dùng cho MiniPlayer
 
-            foreach (var song in songs)
+            // 👇 2. SỬA QUAN TRỌNG: Đăng ký nhận tin nhắn "RefreshLibraryMessage"
+            // Khi AudioViewModel gửi tin nhắn, hàm này sẽ bắt được và tải lại danh sách
+            WeakReferenceMessenger.Default.Register<RefreshLibraryMessage>(this, (r, m) =>
             {
-                LibraryItems.Add(new LibraryItem
+                // Chạy trên luồng chính để đảm bảo an toàn cho giao diện
+                MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    Title = song.Title,
-                    Subtitle = song.Artist,
-                    CoverImage = song.CoverImage,
-                    Url = song.AudioUrl,
-                    ImageColor = "#120520"
+                    await LoadLibrary();
                 });
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Lỗi tải nhạc: {ex.Message}");
-        }
-    }
-
-    [RelayCommand]
-    async Task TapSong(LibraryItem item)
-    {
-        if (item == null) return;
-
-        // 👇 4. LOGIC MỚI QUAN TRỌNG NHẤT 👇
-
-        // Bước A: Chuyển đổi LibraryItem (giao diện) -> Song (model phát nhạc)
-        var songToPlay = new Song
-        {
-            Title = item.Title,
-            Artist = item.Subtitle, // LibraryItem dùng Subtitle cho ca sĩ
-            CoverImage = item.CoverImage,
-            AudioUrl = item.Url
-        };
-
-        // Bước B: Tạo danh sách phát (Context List) từ Library
-        // Để khi bấm Next/Previous nó sẽ chuyển bài trong danh sách Library này
-        var contextList = new ObservableCollection<Song>();
-        foreach (var libItem in LibraryItems)
-        {
-            contextList.Add(new Song
-            {
-                Title = libItem.Title,
-                Artist = libItem.Subtitle,
-                CoverImage = libItem.CoverImage,
-                AudioUrl = libItem.Url
             });
         }
 
-        // Bước C: Ra lệnh cho AudioViewModel phát bài này NGAY LẬP TỨC
-        _audioViewModel.PlaySong(songToPlay, contextList);
-
-        // 👆 HẾT PHẦN LOGIC PHÁT NHẠC 👆
-
-
-        // Bước D: Chuyển trang (Giữ nguyên logic cũ để UI cập nhật)
-        var navigationParameter = new Dictionary<string, object>
+        [RelayCommand]
+        public async Task LoadLibrary()
         {
-            { "SongData", item }
-        };
+            if (IsBusy) return;
+            IsBusy = true;
 
-        await Shell.Current.GoToAsync(nameof(PlayerPage), navigationParameter);
-    }
-    [RelayCommand]
-    public async Task NavigateToPlayer()
-    {
-        if (_audioViewModel.CurrentSong == null) return;
+            try
+            {
+                string uid = Preferences.Get("UserId", "");
 
-        var currentSong = _audioViewModel.CurrentSong;
-        var libraryItem = new LibraryItem
+                if (string.IsNullOrEmpty(uid))
+                {
+                    System.Diagnostics.Debug.WriteLine("DEBUG: Chưa đăng nhập hoặc không tìm thấy UserID.");
+                    UserPlaylists.Clear();
+                    return;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"DEBUG: Đang tải Library của User ID: {uid}");
+
+                var playlists = await _firestoreService.GetUserPlaylists(uid);
+
+                UserPlaylists.Clear();
+                if (playlists.Count > 0)
+                {
+                    foreach (var p in playlists)
+                    {
+                        UserPlaylists.Add(p);
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"DEBUG: User {uid} chưa có playlist nào.");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"DEBUG ERROR: {ex.Message}");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+        [RelayCommand]
+        public async Task TapPlaylist(Playlist playlist)
         {
-            Title = currentSong.Title,
-            Subtitle = currentSong.Artist,
-            CoverImage = currentSong.CoverImage,
-            Url = currentSong.AudioUrl,
-            ImageColor = "#120520"
-        };
+            if (playlist == null) return;
 
-        var navigationParameter = new Dictionary<string, object>
-    {
-        { "SongData", libraryItem }
-    };
+            var navParam = new Dictionary<string, object>
+            {
+                { "Id", playlist.Id },
+                { "Type", CollectionType.Playlist },
+                
+                // Gửi dữ liệu hiển thị
+                { "Name", playlist.Name },
+                { "Image", playlist.CoverImage },
+                { "Description", playlist.SongCount } // Gửi số bài hát
+            };
 
-        await Shell.Current.GoToAsync(nameof(PlayerPage), navigationParameter);
+            await Shell.Current.GoToAsync(nameof(AlbumDetailPage), navParam);
+        }
+        // 👇 HÀM XỬ LÝ MENU TÙY CHỌN CHO PLAYLIST
+        [RelayCommand]
+        public async Task OpenPlaylistOptions(Playlist playlist)
+        {
+            if (playlist == null) return;
+
+            // 1. Hiện bảng chọn
+            string action = await Shell.Current.DisplayActionSheet($"Tùy chọn: {playlist.Name}", "Hủy", "Xóa Playlist", "Sửa tên");
+
+            // 2. Xử lý xóa
+            if (action == "Xóa Playlist")
+            {
+                bool confirm = await Shell.Current.DisplayAlert("Xác nhận", $"Bạn có chắc muốn xóa vĩnh viễn '{playlist.Name}' không?", "Xóa", "Hủy");
+                if (confirm)
+                {
+                    await DeletePlaylist(playlist);
+                }
+            }
+            else if (action == "Sửa tên")
+            {
+                // (Optional) Bạn có thể làm thêm tính năng sửa tên ở đây sau này
+            }
+        }
+
+        private async Task DeletePlaylist(Playlist playlist)
+        {
+            IsBusy = true;
+            try
+            {
+                // 1. Xóa trên Server
+                await _firestoreService.DeletePlaylist(playlist.Id);
+
+                // 2. Xóa ngay lập tức trên giao diện (Không cần load lại)
+                UserPlaylists.Remove(playlist);
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Lỗi", ex.Message, "OK");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+
+        [RelayCommand]
+        public async Task NavigateToPlayer()
+        {
+            await Shell.Current.GoToAsync(nameof(PlayerPage));
+        }
     }
-
-    [RelayCommand]
-    void SelectCategory(string category)
-    {
-    }
-}
-
-public class LibraryItem
-{
-    public string Title { get; set; }
-    public string Subtitle { get; set; }
-    public string CoverImage { get; set; }
-    public string ImageColor { get; set; }
-    public string Url { get; set; }
 }

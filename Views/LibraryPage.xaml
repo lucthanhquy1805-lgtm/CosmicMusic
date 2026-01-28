@@ -1,107 +1,109 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             xmlns:models="clr-namespace:CosmicMusic.Models"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="CosmicMusic.Views.LibraryPage"
              x:DataType="viewmodels:LibraryViewModel"
-             BackgroundColor="{StaticResource PrimaryDark}"
-             Title="Library">
+             Title="Your Library"
+             BackgroundColor="#120520">
 
     <ContentPage.Resources>
         <ResourceDictionary>
+            <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
+            <x:String x:Key="IconPrevious">M6,6H8V18H6M9.5,12L18,18V6</x:String>
+            <x:String x:Key="IconNext">M16,18H18V6H16M6,18L14.5,12L6,6</x:String>
+            <x:String x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</x:String>
+            <x:String x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</x:String>
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto, Auto, Auto, *">
+    <ContentPage.Behaviors>
+        <toolkit:EventToCommandBehavior EventName="Appearing" Command="{Binding LoadLibraryCommand}" />
+    </ContentPage.Behaviors>
 
-        <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" Padding="20,20,20,10" VerticalOptions="End">
-            <Frame Grid.Column="0" HeightRequest="35" WidthRequest="35" CornerRadius="17.5" Padding="0" IsClippedToBounds="True" BorderColor="Transparent" BackgroundColor="#EEE">
-                <Image Source="dotnet_bot.png" Aspect="AspectFill" />
-            </Frame>
-            <Label Grid.Column="2" Text="Sort" FontFamily="MontserratBold" FontSize="14" TextColor="#AAA" VerticalOptions="Center"/>
-        </Grid>
+    <Grid RowDefinitions="Auto, *">
 
-        <VerticalStackLayout Grid.Row="1" Padding="20,0,20,10" Spacing="15">
-            <Label Text="Library" FontFamily="MontserratBold" FontSize="32" TextColor="White"/>
-            <Frame CornerRadius="10" HeightRequest="50" Padding="10,0" BackgroundColor="#33FFFFFF" BorderColor="Transparent" HasShadow="False">
-                <Grid ColumnDefinitions="30, *">
-                    <Label Text="🔍" VerticalOptions="Center" TextColor="#AAA"/>
-                    <Entry Grid.Column="1" Placeholder="Find in your library" PlaceholderColor="#AAA" TextColor="White" VerticalOptions="Center" FontFamily="MontserratRegular"/>
-                </Grid>
-            </Frame>
-        </VerticalStackLayout>
+        <Label Text="Your Library" 
+               Grid.Row="0"
+               FontSize="32" 
+               FontAttributes="Bold" 
+               TextColor="White" 
+               Margin="20,40,20,10"
+               FontFamily="MontserratBold"/>
 
-        <CollectionView Grid.Row="2" ItemsSource="{Binding Categories}" HeightRequest="60" Margin="20,10,0,10">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10"/>
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="x:String">
-                    <Frame Padding="20,8" HeightRequest="40" CornerRadius="20" BorderColor="#555" BackgroundColor="Transparent">
-                        <Label Text="{Binding .}" FontFamily="MontserratBold" TextColor="White" FontSize="14" VerticalOptions="Center" HorizontalOptions="Center"/>
-                        <Frame.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LibraryViewModel}}, Path=SelectCategoryCommand}" CommandParameter="{Binding .}"/>
-                        </Frame.GestureRecognizers>
-                    </Frame>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+        <Grid Grid.Row="1">
 
-        <Grid Grid.Row="3">
+            <CollectionView ItemsSource="{Binding UserPlaylists}" 
+                            SelectionMode="None"
+                            VerticalOptions="FillAndExpand">
 
-            <ScrollView Padding="20,0,20,80">
-                <VerticalStackLayout Spacing="15">
-                    <Grid ColumnDefinitions="60, *" HeightRequest="60">
-                        <Frame Grid.Column="0" HeightRequest="60" WidthRequest="60" CornerRadius="5" BackgroundColor="#333" BorderColor="Transparent" Padding="0">
-                            <Label Text="+" FontSize="30" TextColor="#AAA" HorizontalOptions="Center" VerticalOptions="Center"/>
-                        </Frame>
-                        <Label Grid.Column="1" Text="Create New Playlist" FontFamily="MontserratBold" TextColor="White" VerticalOptions="Center" Margin="15,0,0,0" FontSize="16"/>
-                    </Grid>
-
-                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding LibraryItems}" Spacing="15">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewmodels:LibraryItem">
-                                <Grid ColumnDefinitions="60, *, 30" HeightRequest="70">
-                                    <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer 
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LibraryViewModel}}, Path=TapSongCommand}"
-                                            CommandParameter="{Binding .}"/>
-                                    </Grid.GestureRecognizers>
-                                    <Frame Grid.Column="0" CornerRadius="5" Padding="0" IsClippedToBounds="True" BackgroundColor="{Binding ImageColor}" BorderColor="Transparent">
-                                        <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
-                                    </Frame>
-                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Margin="15,0,0,0" Spacing="2">
-                                        <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="16" TextColor="White"/>
-                                        <Label Text="{Binding Subtitle}" FontFamily="MontserratRegular" FontSize="13" TextColor="#AAA"/>
-                                    </VerticalStackLayout>
-                                    <Label Grid.Column="2" Text="›" FontSize="25" TextColor="#777" VerticalOptions="Center" HorizontalOptions="End"/>
-                                </Grid>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10">
+                        <Label Text="🎵" FontSize="60" HorizontalOptions="Center"/>
+                        <Label Text="Chưa có playlist nào" TextColor="#888" FontSize="16" HorizontalOptions="Center"/>
+                        <Label Text="Hãy thả tim bài hát để tạo playlist!" TextColor="#666" FontSize="12" HorizontalOptions="Center"/>
                     </VerticalStackLayout>
-                </VerticalStackLayout>
-            </ScrollView>
+                </CollectionView.EmptyView>
 
-            <Border IsVisible="False"
-                    Margin="15,0,15,15" 
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:Playlist">
+                        <Grid Padding="15,10" ColumnDefinitions="60, *, 40">
+
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LibraryViewModel}}, Path=TapPlaylistCommand}" CommandParameter="{Binding .}"/>
+                            </Grid.GestureRecognizers>
+
+                            <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="8" HeightRequest="55" WidthRequest="55" BorderColor="Transparent">
+                                <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                            </Frame>
+
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Margin="15,0,0,0" Spacing="2">
+                                <Label Text="{Binding Name}" TextColor="White" FontSize="16" FontAttributes="Bold"/>
+                                <Label Text="{Binding SongCount, StringFormat='{0} songs'}" TextColor="#AAA" FontSize="12"/>
+                            </VerticalStackLayout>
+
+                            <Label Grid.Column="2" 
+                                   Text="⋮" 
+                                   TextColor="#AAA" 
+                                   FontSize="24" 
+                                   VerticalOptions="Center" 
+                                   HorizontalOptions="End"
+                                   Padding="10,0">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LibraryViewModel}}, Path=OpenPlaylistOptionsCommand}" 
+                                                          CommandParameter="{Binding .}"/>
+                                </Label.GestureRecognizers>
+                            </Label>
+
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" 
+                               Color="#A569F7" VerticalOptions="Center" HorizontalOptions="Center"/>
+
+            <Border Margin="15,0,15,20" 
                     Padding="0"
                     Stroke="{StaticResource CosmicPink}"
                     StrokeThickness="1"
                     BackgroundColor="#252535"
-                    StrokeShape="RoundRectangle 15"
-                    HeightRequest="65"
+                    StrokeShape="RoundRectangle 20"
+                    HeightRequest="70"
                     VerticalOptions="End">
 
                 <Border.Shadow>
-                    <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.5"/>
+                    <Shadow Brush="Black" Offset="0,8" Radius="15" Opacity="0.8"/>
                 </Border.Shadow>
 
                 <Border.Triggers>
-                    <DataTrigger TargetType="Border" 
-                                 Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" 
-                                 Value="True">
+                    <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="False">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="True">
                         <Setter Property="IsVisible" Value="True" />
                     </DataTrigger>
                 </Border.Triggers>
@@ -110,42 +112,45 @@
                     <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
                 </Border.GestureRecognizers>
 
-                <Grid ColumnDefinitions="65, *, Auto" ColumnSpacing="10">
-                    <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="15" Margin="5" BorderColor="Transparent" BackgroundColor="Transparent">
+                <Grid ColumnDefinitions="70, *, 40, 40, 40" ColumnSpacing="0" Margin="0,0,10,0">
+                    <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="20" Margin="5" BorderColor="Transparent" BackgroundColor="Transparent">
                         <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
                     </Frame>
 
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="0,5">
-                        <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="14" TextColor="White" LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="12" TextColor="#AAA" LineBreakMode="TailTruncation"/>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="5,0">
+                        <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" LineBreakMode="TailTruncation"/>
+                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#AAA" LineBreakMode="TailTruncation"/>
                     </VerticalStackLayout>
 
-                    <ImageButton Grid.Column="2" 
-                                 Command="{Binding AudioPlayer.PlayPauseCommand}" 
-                                 HeightRequest="40" 
-                                 WidthRequest="40" 
-                                 VerticalOptions="Center" 
-                                 Margin="0,0,15,0" 
-                                 BackgroundColor="Transparent">
-                        <ImageButton.Source>
-                            <FontImageSource Glyph="▶" Color="{StaticResource CosmicPink}" Size="28"/>
-                        </ImageButton.Source>
-                        <ImageButton.Triggers>
-                            <DataTrigger TargetType="ImageButton" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
-                                <Setter Property="Source">
-                                    <FontImageSource Glyph="⏸" Color="{StaticResource CosmicPink}" Size="28"/>
-                                </Setter>
-                            </DataTrigger>
-                            <DataTrigger TargetType="ImageButton" Binding="{Binding AudioPlayer.IsPlaying}" Value="False">
-                                <Setter Property="Source">
-                                    <FontImageSource Glyph="▶" Color="{StaticResource CosmicPink}" Size="28"/>
-                                </Setter>
-                            </DataTrigger>
-                        </ImageButton.Triggers>
-                    </ImageButton>
+                    <Grid Grid.Column="2" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.PreviousCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Path Data="{StaticResource IconPrevious}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="16" WidthRequest="16" HorizontalOptions="Center" VerticalOptions="Center"/>
+                    </Grid>
+
+                    <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.PlayPauseCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Path Data="{StaticResource IconPlay}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="22" WidthRequest="22" HorizontalOptions="Center" VerticalOptions="Center">
+                            <Path.Triggers>
+                                <DataTrigger TargetType="Path" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
+                                    <Setter Property="Data" Value="{StaticResource IconPause}"/>
+                                </DataTrigger>
+                            </Path.Triggers>
+                        </Path>
+                    </Grid>
+
+                    <Grid Grid.Column="4" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.NextCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Path Data="{StaticResource IconNext}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="16" WidthRequest="16" HorizontalOptions="Center" VerticalOptions="Center"/>
+                    </Grid>
                 </Grid>
             </Border>
-        </Grid>
 
+        </Grid>
     </Grid>
 </ContentPage>

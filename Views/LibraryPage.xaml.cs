@@ -4,12 +4,26 @@ namespace CosmicMusic.Views;
 
 public partial class LibraryPage : ContentPage
 {
-    // Bơm ViewModel vào đây
-    public LibraryPage(LibraryViewModel vm)
+    private readonly LibraryViewModel _viewModel;
+
+    public LibraryPage(LibraryViewModel viewModel)
     {
         InitializeComponent();
 
-        // KẾT NỐI DỮ LIỆU TẠI ĐÂY
-        BindingContext = vm;
+        // 1. Gán ViewModel vào BindingContext
+        _viewModel = viewModel;
+        BindingContext = _viewModel;
+    }
+
+    // 2. Dùng hàm này để ép App tải lại dữ liệu mỗi khi mở màn hình Library
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+
+        if (_viewModel != null)
+        {
+            // Gọi trực tiếp hàm tải dữ liệu
+            await _viewModel.LoadLibraryCommand.ExecuteAsync(null);
+        }
     }
 }

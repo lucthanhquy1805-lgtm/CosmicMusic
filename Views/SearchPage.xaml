@@ -13,6 +13,11 @@
         <ResourceDictionary>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
+
+            <x:String x:Key="IconPrevious">M6,6H8V18H6M9.5,12L18,18V6</x:String>
+            <x:String x:Key="IconNext">M16,18H18V6H16M6,18L14.5,12L6,6</x:String>
+            <x:String x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</x:String>
+            <x:String x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</x:String>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -125,8 +130,7 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
-            <Border IsVisible="False"
-                    Margin="15,0,15,15" 
+            <Border Margin="15,0,15,15" 
                     Padding="0"
                     Stroke="{StaticResource CosmicPink}"
                     StrokeThickness="1"
@@ -140,9 +144,10 @@
                 </Border.Shadow>
 
                 <Border.Triggers>
-                    <DataTrigger TargetType="Border" 
-                                 Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" 
-                                 Value="True">
+                    <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="False">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="True">
                         <Setter Property="IsVisible" Value="True" />
                     </DataTrigger>
                 </Border.Triggers>
@@ -151,39 +156,44 @@
                     <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
                 </Border.GestureRecognizers>
 
-                <Grid ColumnDefinitions="65, *, Auto" ColumnSpacing="10">
+                <Grid ColumnDefinitions="65, *, 40, 40, 40" ColumnSpacing="0" Margin="0,0,10,0">
+
                     <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="15" Margin="5" BorderColor="Transparent" BackgroundColor="Transparent">
                         <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
                     </Frame>
 
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="0,5">
-                        <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontSize="14" FontAttributes="Bold" TextColor="White" LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontSize="12" TextColor="#AAA" LineBreakMode="TailTruncation"/>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="5,0">
+                        <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" LineBreakMode="TailTruncation"/>
+                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#AAA" LineBreakMode="TailTruncation"/>
                     </VerticalStackLayout>
 
-                    <ImageButton Grid.Column="2" 
-                                 Command="{Binding AudioPlayer.PlayPauseCommand}" 
-                                 HeightRequest="40" 
-                                 WidthRequest="40" 
-                                 VerticalOptions="Center" 
-                                 Margin="0,0,15,0" 
-                                 BackgroundColor="Transparent">
-                        <ImageButton.Source>
-                            <FontImageSource Glyph="▶" Color="{StaticResource CosmicPink}" Size="28"/>
-                        </ImageButton.Source>
-                        <ImageButton.Triggers>
-                            <DataTrigger TargetType="ImageButton" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
-                                <Setter Property="Source">
-                                    <FontImageSource Glyph="⏸" Color="{StaticResource CosmicPink}" Size="28"/>
-                                </Setter>
-                            </DataTrigger>
-                            <DataTrigger TargetType="ImageButton" Binding="{Binding AudioPlayer.IsPlaying}" Value="False">
-                                <Setter Property="Source">
-                                    <FontImageSource Glyph="▶" Color="{StaticResource CosmicPink}" Size="28"/>
-                                </Setter>
-                            </DataTrigger>
-                        </ImageButton.Triggers>
-                    </ImageButton>
+                    <Grid Grid.Column="2" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.PreviousCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Path Data="{StaticResource IconPrevious}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                    </Grid>
+
+                    <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.PlayPauseCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Path Data="{StaticResource IconPlay}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" VerticalOptions="Center">
+                            <Path.Triggers>
+                                <DataTrigger TargetType="Path" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
+                                    <Setter Property="Data" Value="{StaticResource IconPause}"/>
+                                </DataTrigger>
+                            </Path.Triggers>
+                        </Path>
+                    </Grid>
+
+                    <Grid Grid.Column="4" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.NextCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Path Data="{StaticResource IconNext}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                    </Grid>
+
                 </Grid>
             </Border>
 

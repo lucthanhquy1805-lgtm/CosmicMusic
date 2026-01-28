@@ -55,27 +55,34 @@
             <Image Source="{Binding CurrentSong.CoverImage, TargetNullValue='cover_chill.jpg'}" Aspect="AspectFill"/>
         </Border>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*, Auto" VerticalOptions="Center" Margin="0, 15, 0, 0" ColumnSpacing="15">
-            <VerticalStackLayout Grid.Column="0" Spacing="5">
-                <Label Text="{Binding CurrentSong.Title}" FontFamily="MontserratBold" FontSize="22" FontAttributes="Bold" TextColor="White" LineBreakMode="TailTruncation"/>
+        <Grid Grid.Row="2" ColumnDefinitions="*, 60" VerticalOptions="Center" Margin="0, 15, 0, 0" ColumnSpacing="5">
+            <VerticalStackLayout Grid.Column="0" Spacing="5" VerticalOptions="Center">
+                <Label Text="{Binding CurrentSong.Title}" FontFamily="MontserratBold" FontSize="22" FontAttributes="Bold" TextColor="White" LineBreakMode="TailTruncation" MaxLines="1"/>
                 <Label Text="{Binding CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="16" TextColor="#AAA" LineBreakMode="TailTruncation"/>
             </VerticalStackLayout>
 
-            <Grid Grid.Column="1" BackgroundColor="Transparent" WidthRequest="40" HeightRequest="40">
-                <Path Data="{StaticResource IconHeart}" Fill="{StaticResource AccentColor}" Aspect="Uniform" HeightRequest="24" VerticalOptions="Center" HorizontalOptions="Center"/>
+            <Grid Grid.Column="1" WidthRequest="50" HeightRequest="50" HorizontalOptions="Center" VerticalOptions="Center" BackgroundColor="Transparent">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding ToggleFavoriteCommand}" />
+                </Grid.GestureRecognizers>
+
+                <Path Data="{StaticResource IconHeart}" Aspect="Uniform" HeightRequest="24" WidthRequest="24" VerticalOptions="Center" HorizontalOptions="Center">
+                    <Path.Style>
+                        <Style TargetType="Path">
+                            <Setter Property="Fill" Value="{StaticResource AccentColor}"/>
+                            <Style.Triggers>
+                                <DataTrigger TargetType="Path" Binding="{Binding IsFavorite}" Value="True">
+                                    <Setter Property="Fill" Value="Red"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Path.Style>
+                </Path>
             </Grid>
         </Grid>
 
         <VerticalStackLayout Grid.Row="3" Spacing="5" VerticalOptions="End">
-            <Slider MinimumTrackColor="{StaticResource AccentColor}" 
-                    MaximumTrackColor="#555" 
-                    ThumbColor="White"
-                    Minimum="0"
-                    Maximum="{Binding Duration.TotalSeconds}"
-                    Value="{Binding CurrentPositionSeconds}"
-                    DragStartedCommand="{Binding DragStartedCommand}"
-                    DragCompletedCommand="{Binding DragCompletedCommand}" />
-
+            <Slider MinimumTrackColor="{StaticResource AccentColor}" MaximumTrackColor="#555" ThumbColor="White" Minimum="0" Maximum="{Binding Duration.TotalSeconds}" Value="{Binding CurrentPositionSeconds}" DragStartedCommand="{Binding DragStartedCommand}" DragCompletedCommand="{Binding DragCompletedCommand}" />
             <Grid ColumnDefinitions="Auto, *, Auto">
                 <Label Text="{Binding CurrentPosition, StringFormat='{0:mm\\:ss}'}" FontFamily="MontserratRegular" TextColor="#BBB" FontSize="12"/>
                 <Label Grid.Column="2" Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}" FontFamily="MontserratRegular" TextColor="#BBB" FontSize="12"/>
@@ -83,7 +90,6 @@
         </VerticalStackLayout>
 
         <Grid Grid.Row="4" ColumnDefinitions="*,*,Auto,*,*" ColumnSpacing="15" VerticalOptions="Center" Margin="0,15">
-
             <Grid VerticalOptions="Center" HorizontalOptions="Center" BackgroundColor="Transparent" WidthRequest="50" HeightRequest="50">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ToggleShuffleCommand}" />
@@ -101,14 +107,12 @@
                     </Path.Style>
                 </Path>
             </Grid>
-
             <Grid Grid.Column="1" VerticalOptions="Center" HorizontalOptions="Center" BackgroundColor="Transparent" WidthRequest="50" HeightRequest="50">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding PreviousCommand}" />
                 </Grid.GestureRecognizers>
                 <Path Data="{StaticResource IconPrevious}" Fill="White" Aspect="Uniform" HeightRequest="30" WidthRequest="30" HorizontalOptions="Center" VerticalOptions="Center"/>
             </Grid>
-
             <Border Grid.Column="2" HeightRequest="70" WidthRequest="70" StrokeShape="RoundRectangle 35" StrokeThickness="0" BackgroundColor="White">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding PlayPauseCommand}" />
@@ -118,14 +122,12 @@
                     <Path Data="{StaticResource IconPause}" Fill="#120520" Aspect="Uniform" HeightRequest="26" WidthRequest="26" IsVisible="{Binding IsPlaying}"/>
                 </Grid>
             </Border>
-
             <Grid Grid.Column="3" VerticalOptions="Center" HorizontalOptions="Center" BackgroundColor="Transparent" WidthRequest="50" HeightRequest="50">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding NextCommand}" />
                 </Grid.GestureRecognizers>
                 <Path Data="{StaticResource IconNext}" Fill="White" Aspect="Uniform" HeightRequest="30" WidthRequest="30" HorizontalOptions="Center" VerticalOptions="Center"/>
             </Grid>
-
             <Grid Grid.Column="4" VerticalOptions="Center" HorizontalOptions="Center" BackgroundColor="Transparent" WidthRequest="50" HeightRequest="50">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ToggleRepeatCommand}" />
@@ -146,8 +148,7 @@
                             </Style>
                         </Path.Style>
                     </Path>
-                    <Label Text="1" FontSize="9" FontFamily="MontserratBold" TextColor="{StaticResource AccentColor}" 
-                           HorizontalOptions="Center" VerticalOptions="Center" Margin="0,2,0,0" IsVisible="False">
+                    <Label Text="1" FontSize="9" FontFamily="MontserratBold" TextColor="{StaticResource AccentColor}" HorizontalOptions="Center" VerticalOptions="Center" Margin="0,2,0,0" IsVisible="False">
                         <Label.Triggers>
                             <DataTrigger TargetType="Label" Binding="{Binding RepeatMode}" Value="1">
                                 <Setter Property="IsVisible" Value="True"/>

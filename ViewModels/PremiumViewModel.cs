@@ -11,7 +11,7 @@ namespace CosmicMusic.ViewModels
         private bool _isBusy;
 
         [ObservableProperty]
-        private bool _isPaymentVisible = true; // Mặc định hiện Popup khi vào trang
+        private bool _isPaymentVisible = false; // Mặc định hiện Popup khi vào trang
 
         private readonly FirestoreService _firestoreService;
 

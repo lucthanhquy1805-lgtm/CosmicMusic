@@ -1,18 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-using SQLite;
-
-namespace CosmicMusic.Models
+﻿namespace CosmicMusic.Models
 {
     public class Playlist
     {
-        [PrimaryKey, AutoIncrement]
-        public int Id { get; set; }
+        // ID dạng chuỗi để khớp với Firebase/AWS
+        public string Id { get; set; }
 
         public string Name { get; set; }
-        public bool IsSystem { get; set; } // True nếu là playlist mặc định (vd: Favorites)
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        // CỦA AI? (Quan trọng nhất để chia dữ liệu)
+        public string OwnerId { get; set; }
+
+        // Để hiển thị đẹp
+        public string CoverImage { get; set; }
+        public int SongCount { get; set; }
+
+        // True = Playlist hệ thống (như Liked Songs)
+        public bool IsSystem { get; set; }
     }
 }

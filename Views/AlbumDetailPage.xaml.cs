@@ -1,15 +1,16 @@
 using CosmicMusic.ViewModels;
 
-namespace CosmicMusic.Views;
-
-public partial class AlbumDetailPage : ContentPage
+namespace CosmicMusic.Views
 {
-    // 👇 Thêm tham số viewModel vào Constructor
-    public AlbumDetailPage(AlbumDetailViewModel viewModel)
+    public partial class AlbumDetailPage : ContentPage
     {
-        InitializeComponent();
+        // 👇 Quan trọng: Inject AlbumDetailViewModel vào đây
+        public AlbumDetailPage(AlbumDetailViewModel viewModel)
+        {
+            InitializeComponent();
 
-        // 👇 Kết nối giao diện với logic
-        BindingContext = viewModel;
+            // Gán ViewModel làm nguồn dữ liệu cho trang này
+            BindingContext = viewModel;
+        }
     }
 }
