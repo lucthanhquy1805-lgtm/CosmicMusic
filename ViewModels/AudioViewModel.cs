@@ -35,8 +35,15 @@ namespace CosmicMusic.ViewModels
 
         [ObservableProperty] private Song _currentSong;
         [ObservableProperty] private bool _isPlaying;
-        [ObservableProperty] private TimeSpan _duration;
-        [ObservableProperty] private TimeSpan _currentPosition;
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(TotalDurationText))]
+        private TimeSpan _duration;
+        public string TotalDurationText => $"{Duration:mm\\:ss}";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CurrentPositionText))]
+        private TimeSpan _currentPosition;
+        public string CurrentPositionText => $"{CurrentPosition:mm\\:ss}";
         [ObservableProperty] private double _volume = 1.0;
 
         // Thuộc tính màu tim (Quan trọng để Binding)
@@ -133,6 +140,12 @@ namespace CosmicMusic.ViewModels
 
             CurrentPosition = e.Position;
             OnPropertyChanged(nameof(CurrentPositionSeconds)); // Báo cho Slider chạy
+            if (_mediaElement != null &&
+                _mediaElement.Duration > TimeSpan.Zero &&
+                Duration != _mediaElement.Duration)
+            {
+                Duration = _mediaElement.Duration;
+            }
         }
 
         private void OnMediaEnded(object sender, EventArgs e)
