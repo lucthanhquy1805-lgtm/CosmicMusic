@@ -165,11 +165,25 @@ namespace CosmicMusic.Services
         // ==========================================================
         public async Task<bool> IsSongInUserLibrary(string userId, Song song)
         {
+            // 🛡️ BƯỚC 1: KIỂM TRA DỮ LIỆU ĐẦU VÀO (QUAN TRỌNG)
+            // Nếu object song bị null -> Thoát ngay
+            if (song == null) return false;
+
+            // Nếu Tên hoặc Ca sĩ bị null (Lỗi gây crash App lúc nãy) -> Thoát ngay
+            if (string.IsNullOrEmpty(song.Title) || string.IsNullOrEmpty(song.Artist))
+            {
+                // In ra Log để bạn biết bài nào đang bị lỗi dữ liệu
+                System.Diagnostics.Debug.WriteLine($"⚠️ Cảnh báo: Bài hát '{song.Title}' bị thiếu thông tin Ca sĩ hoặc Tên. Không thể kiểm tra Tim.");
+                return false;
+            }
+
             try
             {
                 var playlists = await GetUserPlaylists(userId);
                 if (playlists == null || playlists.Count == 0) return false;
 
+                // 🛡️ BƯỚC 2: XỬ LÝ AN TOÀN
+                // Bây giờ Artist chắc chắn không null, lệnh Replace sẽ chạy ngon lành
                 string safeTitle = song.Title.Replace(" ", "_");
                 string safeArtist = song.Artist.Replace(" ", "_");
                 string songDocId = WebUtility.UrlEncode($"{safeTitle}_{safeArtist}");
@@ -357,6 +371,74 @@ namespace CosmicMusic.Services
             {
                 System.Diagnostics.Debug.WriteLine($"Lỗi xóa Playlist: {ex.Message}");
             }
+        }
+        // 👇 HÀM LẤY NHẠC TỪ FIRESTORE (Bản Full + SearchKeywords)
+        public async Task<List<Song>> GetAllSongsAsync()
+        {
+            var songs = new List<Song>();
+            string url = $"{_baseUrl}/songs"; // Trỏ vào collection 'songs' gốc
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                    if (doc.RootElement.TryGetProperty("documents", out var docs))
+                    {
+                        foreach (var d in docs.EnumerateArray())
+                        {
+                            if (d.TryGetProperty("fields", out var fields))
+                            {
+                                var s = new Song();
+
+                                // 1. Lấy thông tin cơ bản
+                                if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+
+                                // 2. Lấy thông tin Boolean
+                                if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv))
+                                    s.IsPremium = bv.GetBoolean();
+
+                                if (fields.TryGetProperty("isFeatured", out var f) && f.TryGetProperty("booleanValue", out var fv))
+                                    s.IsFeatured = fv.GetBoolean();
+
+                                // 👇 3. LẤY SEARCH KEYWORDS (MẢNG) - MỚI BỔ SUNG
+                                s.SearchKeywords = new List<string>();
+                                if (fields.TryGetProperty("searchKeywords", out var sk) &&
+                                    sk.TryGetProperty("arrayValue", out var av) &&
+                                    av.TryGetProperty("values", out var vals))
+                                {
+                                    foreach (var v in vals.EnumerateArray())
+                                    {
+                                        if (v.TryGetProperty("stringValue", out var val))
+                                        {
+                                            s.SearchKeywords.Add(val.GetString());
+                                        }
+                                    }
+                                }
+
+                                // Chỉ lấy bài hợp lệ
+                                if (!string.IsNullOrEmpty(s.AudioUrl) && !string.IsNullOrEmpty(s.Title))
+                                {
+                                    songs.Add(s);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc Firestore: {ex.Message}");
+            }
+
+            return songs;
         }
     }
 

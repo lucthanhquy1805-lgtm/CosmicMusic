@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using CosmicMusic.Models;
 using CosmicMusic.Services;
+using CosmicMusic.Views;
 using System.Collections.ObjectModel;
 
 namespace CosmicMusic.ViewModels
@@ -10,182 +11,197 @@ namespace CosmicMusic.ViewModels
     public partial class AlbumDetailViewModel : ObservableObject, IQueryAttributable
     {
         private readonly FirestoreService _firestoreService;
+        private readonly MusicApiService _musicApiService; // Cần thêm cái này để lấy toàn bộ nhạc
 
         // MiniPlayer cần cái này
         [ObservableProperty] private AudioViewModel _audioPlayer;
         [ObservableProperty] private bool _isBusy;
 
-        // Dữ liệu hiển thị lên màn hình (Binding)
-        [ObservableProperty] private string _coverImage;  // Ảnh to đùng
-        [ObservableProperty] private string _mainTitle;   // Tên (VD: Cosmic Dream)
-        [ObservableProperty] private string _subTitle;    // Dòng dưới (VD: Album by Orion • 2023)
-        [ObservableProperty] private bool _isAlbumType;   // Để hiện nút Download/Add nếu cần
+        // Dữ liệu hiển thị (Binding)
+        [ObservableProperty] private string _coverImage;
+        [ObservableProperty] private string _mainTitle;
+        [ObservableProperty] private string _subTitle;
+        [ObservableProperty] private bool _isAlbumType;
 
-        // Dữ liệu nội bộ
-        private string _currentId;
-        private string _currentType;
+        // Dữ liệu nội bộ để biết đang xem cái gì
+        private string _currentId;     // ID Playlist (nếu xem playlist)
+        private string _currentType;   // "Playlist", "Album", hoặc "Artist"
+        private Album _receivedAlbum;  // Dữ liệu Album nhận từ Home
 
         public ObservableCollection<Song> Songs { get; } = new();
 
-        public AlbumDetailViewModel(FirestoreService firestoreService, AudioViewModel audioPlayer)
+        // Inject thêm MusicApiService
+        public AlbumDetailViewModel(FirestoreService firestoreService, MusicApiService musicApiService, AudioViewModel audioPlayer)
         {
             _firestoreService = firestoreService;
+            _musicApiService = musicApiService;
             AudioPlayer = audioPlayer;
         }
 
-        // 👇 HÀM NHẬN DỮ LIỆU TỪ TRANG KHÁC GỬI SANG
+        // 👇 HÀM NHẬN DỮ LIỆU ĐÃ ĐƯỢC NÂNG CẤP (XỬ LÝ CẢ 2 TRƯỜNG HỢP)
         public async void ApplyQueryAttributes(IDictionary<string, object> query)
         {
-            // 1. Nhận thông tin cơ bản
-            if (query.ContainsKey("Name")) MainTitle = query["Name"].ToString();
-            if (query.ContainsKey("Image")) CoverImage = query["Image"].ToString();
+            Songs.Clear(); // Xóa cũ trước
 
-            // 2. Nhận ID và Loại để biết xử lý
-            _currentId = query.ContainsKey("Id") ? query["Id"].ToString() : "";
-            _currentType = query.ContainsKey("Type") ? query["Type"].ToString() : CollectionType.Playlist;
-
-            // 3. Xử lý dòng phụ đề (Subtitle) cho chuyên nghiệp
-            if (_currentType == CollectionType.Playlist)
+            // TRƯỜNG HỢP 1: Nhận từ trang Home (Album/Ca sĩ)
+            if (query.ContainsKey("AlbumData"))
             {
-                // Nếu là Playlist thì hiện số bài
-                string count = query.ContainsKey("Description") ? query["Description"].ToString() : "0 songs";
-                SubTitle = $"Playlist • {count}";
-                IsAlbumType = false;
-            }
-            else if (_currentType == CollectionType.Album)
-            {
-                // Nếu là Album thì hiện: Album by [Artist] • [Year]
-                string artist = query.ContainsKey("Artist") ? query["Artist"].ToString() : "Unknown";
-                string year = query.ContainsKey("Year") ? query["Year"].ToString() : "2023";
-                SubTitle = $"Album by {artist} • {year}";
-                IsAlbumType = true;
-            }
+                _receivedAlbum = query["AlbumData"] as Album;
+                if (_receivedAlbum != null)
+                {
+                    MainTitle = _receivedAlbum.Title;
+                    CoverImage = _receivedAlbum.CoverImage;
 
-            // 4. Tải nhạc
-            await LoadSongs();
+                    // Xác định xem đây là Album hay Ca sĩ dựa vào Description
+                    if (_receivedAlbum.Description == "Artist")
+                    {
+                        _currentType = "Artist";
+                        SubTitle = "Nghệ sĩ";
+                    }
+                    else
+                    {
+                        _currentType = "Album";
+                        SubTitle = $"Album • {_receivedAlbum.Artist}";
+                    }
+
+                    IsAlbumType = true; // Không cho xóa bài
+                    await LoadSongsFromGlobal(); // Gọi hàm lọc nhạc toàn cục
+                }
+            }
+            // TRƯỜNG HỢP 2: Nhận từ trang Library (Playlist cá nhân)
+            else if (query.ContainsKey("Id"))
+            {
+                _currentId = query["Id"].ToString();
+                _currentType = "Playlist"; // Mặc định là Playlist cá nhân
+
+                MainTitle = query.ContainsKey("Name") ? query["Name"].ToString() : "Playlist";
+                CoverImage = query.ContainsKey("Image") ? query["Image"].ToString() : "";
+                string count = query.ContainsKey("Description") ? query["Description"].ToString() : "0";
+                SubTitle = $"Playlist • {count} songs";
+
+                IsAlbumType = false; // Cho phép xóa bài
+                await LoadSongsFromPlaylist(); // Gọi hàm lấy nhạc Playlist
+            }
         }
 
-        public async Task LoadSongs()
+        // LOGIC 1: Lấy nhạc Playlist cá nhân (Code cũ của bạn)
+        private async Task LoadSongsFromPlaylist()
         {
             if (string.IsNullOrEmpty(_currentId)) return;
             IsBusy = true;
-            Songs.Clear();
-            List<Song> fetchedSongs = new();
-
             try
             {
-                if (_currentType == CollectionType.Playlist)
-                {
-                    fetchedSongs = await _firestoreService.GetSongsFromPlaylist(_currentId);
-                }
-                // Sau này thêm logic lấy Album ở đây...
-
+                var fetchedSongs = await _firestoreService.GetSongsFromPlaylist(_currentId);
                 foreach (var s in fetchedSongs) Songs.Add(s);
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
             finally { IsBusy = false; }
         }
 
+        // LOGIC 2: Lọc nhạc Album/Ca sĩ (Mới thêm)
+        private async Task LoadSongsFromGlobal()
+        {
+            IsBusy = true;
+            try
+            {
+                // Lấy tất cả nhạc
+                var allSongs = await _musicApiService.GetSongsAsync();
+
+                IEnumerable<Song> filteredSongs;
+
+                if (_currentType == "Artist")
+                {
+                    // Lọc theo tên Ca sĩ
+                    filteredSongs = allSongs.Where(s =>
+                        s.Artist != null &&
+                        s.Artist.Trim().Equals(MainTitle.Trim(), StringComparison.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    // Lọc theo tên Album
+                    filteredSongs = allSongs.Where(s =>
+                        s.Album != null &&
+                        s.Album.Trim().Equals(MainTitle.Trim(), StringComparison.OrdinalIgnoreCase));
+                }
+
+                foreach (var s in filteredSongs) Songs.Add(s);
+
+                // Cập nhật lại Subtitle cho chính xác số bài
+                if (_currentType == "Album") SubTitle = $"Album • {_receivedAlbum.Artist} • {Songs.Count} bài";
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            finally { IsBusy = false; }
+        }
+
+        // --- CÁC HÀM ĐIỀU KHIỂN ---
+
         [RelayCommand]
         public void PlaySong(Song song)
         {
+            // Gửi cả danh sách AlbumSongs vào để AudioPlayer biết bài tiếp theo
             AudioPlayer.PlaySong(song, Songs);
+            Shell.Current.GoToAsync(nameof(PlayerPage));
         }
 
-        [RelayCommand]
-        public async Task NavigateToPlayer() => await Shell.Current.GoToAsync("PlayerPage");
-
-        [RelayCommand]
-        public async Task GoBack() => await Shell.Current.GoToAsync("..");
-        // ... (Các hàm cũ giữ nguyên)
-
-        // 👇 THÊM HÀM NÀY ĐỂ NÚT "PLAY" HOẠT ĐỘNG
         [RelayCommand]
         public void PlayAll()
         {
             if (Songs.Count > 0)
             {
-                // Phát bài đầu tiên và nạp cả danh sách vào hàng đợi
                 AudioPlayer.PlaySong(Songs[0], Songs);
+                Shell.Current.GoToAsync(nameof(PlayerPage));
             }
         }
 
-        // (Tùy chọn) Thêm luôn hàm Shuffle để dùng cho nút bên cạnh
         [RelayCommand]
         public void ShuffleAll()
         {
             if (Songs.Count > 0)
             {
-                // Bật chế độ Shuffle trước
                 AudioPlayer.IsShuffle = true;
-
-                // Chọn ngẫu nhiên 1 bài để phát
                 var r = new Random();
-                var randomSong = Songs[r.Next(Songs.Count)];
-
-                AudioPlayer.PlaySong(randomSong, Songs);
+                AudioPlayer.PlaySong(Songs[r.Next(Songs.Count)], Songs);
+                Shell.Current.GoToAsync(nameof(PlayerPage));
             }
         }
-        // 👇 HÀM XỬ LÝ KHI BẤM VÀO 3 CHẤM 👇
+
+        [RelayCommand] public async Task NavigateToPlayer() => await Shell.Current.GoToAsync(nameof(PlayerPage));
+        [RelayCommand] public async Task GoBack() => await Shell.Current.GoToAsync("..");
+
+        // --- MENU OPTION (XÓA/CHIA SẺ) ---
         [RelayCommand]
         public async Task OpenOptionMenu(Song song)
         {
             if (song == null) return;
 
-            // 1. Hiện Menu từ dưới lên (Giống Spotify)
             string action = "";
 
-            // Chỉ hiện nút "Xóa" nếu đây là Playlist (Album thì không cho xóa nhạc gốc)
-            if (_currentType == CollectionType.Playlist)
+            // Chỉ cho phép xóa nếu là Playlist cá nhân
+            if (_currentType == "Playlist")
             {
-                action = await Shell.Current.DisplayActionSheet(song.Title, "Hủy", "Xóa khỏi Playlist", "Chia sẻ", "Xem nghệ sĩ");
+                action = await Shell.Current.DisplayActionSheet(song.Title, "Hủy", "Xóa khỏi Playlist", "Chia sẻ");
             }
             else
             {
-                action = await Shell.Current.DisplayActionSheet(song.Title, "Hủy", null, "Chia sẻ", "Xem nghệ sĩ");
+                // Nếu là Album thì chỉ cho Chia sẻ
+                action = await Shell.Current.DisplayActionSheet(song.Title, "Hủy", null, "Chia sẻ");
             }
 
-            // 2. Xử lý các hành động
-            if (action == "Chia sẻ")
+            if (action == "Xóa khỏi Playlist")
             {
-                await Share.Default.RequestAsync(new ShareTextRequest
-                {
-                    Text = $"Đang nghe {song.Title} - {song.Artist} trên Cosmic Music!",
-                    Title = "Chia sẻ bài hát"
-                });
-            }
-            else if (action == "Xóa khỏi Playlist")
-            {
-                bool confirm = await Shell.Current.DisplayAlert("Xác nhận", "Bạn có chắc muốn xóa bài này?", "Xóa", "Hủy");
-                if (confirm)
-                {
-                    await DeleteSong(song);
-                }
+                bool confirm = await Shell.Current.DisplayAlert("Xác nhận", "Xóa bài này?", "Xóa", "Hủy");
+                if (confirm) await DeleteSong(song);
             }
         }
 
         private async Task DeleteSong(Song song)
         {
             IsBusy = true;
-
-            // 1. Xóa trên Server (Firestore)
             await _firestoreService.RemoveSongFromPlaylist(_currentId, song);
-
-            // 2. Xóa trên Giao diện (App) ngay lập tức
             Songs.Remove(song);
-
-            // 3. Cập nhật lại dòng phụ đề (Số lượng bài hát)
-            if (_currentType == CollectionType.Playlist)
-            {
-                SubTitle = $"Playlist • {Songs.Count} songs";
-            }
-
-            // 4. (Quan trọng) Gửi tin nhắn để trang Library bên ngoài cũng cập nhật lại số lượng
-            // Dùng Messenger để báo: "Hey Library, reload đi!"
-            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
-
+            SubTitle = $"Playlist • {Songs.Count} songs";
+            WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
             IsBusy = false;
         }
     }
 }
-    

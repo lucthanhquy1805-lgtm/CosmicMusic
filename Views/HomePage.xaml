@@ -29,11 +29,9 @@
     </ContentPage.Resources>
 
     <Grid>
-
         <toolkit:MediaElement x:Name="appMediaElement"
                               ShouldAutoPlay="False"
                               IsVisible="False" 
-                              Source="{Binding AudioPlayer.CurrentSong.AudioUrl}"
                               Volume="{Binding AudioPlayer.Volume}" />
 
         <Grid RowDefinitions="*, Auto">
@@ -55,13 +53,13 @@
                     <Label Text="Good morning" FontFamily="MontserratBold" FontSize="28" TextColor="White"/>
 
                     <VerticalStackLayout Spacing="15">
-                        <Label Text="Featured Playlists" FontFamily="MontserratBold" FontSize="20" TextColor="White"/>
-                        <CollectionView ItemsSource="{Binding Playlist}" HeightRequest="220">
+                        <Label Text="Featured Albums" FontFamily="MontserratBold" FontSize="20" TextColor="White"/>
+                        <CollectionView ItemsSource="{Binding FeaturedAlbums}" HeightRequest="220">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:Song">
+                                <DataTemplate x:DataType="models:Album">
                                     <Frame HeightRequest="220" WidthRequest="220" CornerRadius="20" Padding="0" IsClippedToBounds="True" BorderColor="Transparent" BackgroundColor="#2A2A40">
                                         <Frame.GestureRecognizers>
                                             <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=OpenAlbumCommand}" CommandParameter="{Binding .}"/>
@@ -70,7 +68,7 @@
                                             <Image Grid.Row="0" Source="{Binding CoverImage}" Aspect="AspectFill"/>
                                             <VerticalStackLayout Grid.Row="1" Padding="15">
                                                 <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="16" TextColor="White" LineBreakMode="TailTruncation"/>
-                                                <Label Text="Playlist" FontFamily="MontserratRegular" FontSize="14" TextColor="{StaticResource TextSecondary}"/>
+                                                <Label Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="14" TextColor="{StaticResource TextSecondary}"/>
                                             </VerticalStackLayout>
                                         </Grid>
                                     </Frame>
@@ -80,22 +78,24 @@
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="15">
-                        <Label Text="New Releases" FontFamily="MontserratBold" FontSize="20" TextColor="White"/>
-                        <CollectionView ItemsSource="{Binding Playlist}" HeightRequest="180">
+                        <Label Text="Top Artists" FontFamily="MontserratBold" FontSize="20" TextColor="White"/>
+                        <CollectionView ItemsSource="{Binding TopArtists}" HeightRequest="180">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:Song">
+                                <DataTemplate x:DataType="models:Album">
                                     <Frame HeightRequest="180" WidthRequest="150" CornerRadius="15" Padding="0" IsClippedToBounds="True" BorderColor="Transparent" BackgroundColor="#2A2A40">
                                         <Frame.GestureRecognizers>
                                             <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=OpenAlbumCommand}" CommandParameter="{Binding .}"/>
                                         </Frame.GestureRecognizers>
                                         <Grid RowDefinitions="*, Auto">
-                                            <Image Grid.Row="0" Source="{Binding CoverImage}" Aspect="AspectFill" HeightRequest="120"/>
+                                            <Frame Grid.Row="0" CornerRadius="75" HeightRequest="120" WidthRequest="120" HorizontalOptions="Center" Margin="0,10,0,0" Padding="0" IsClippedToBounds="True">
+                                                <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                            </Frame>
                                             <VerticalStackLayout Grid.Row="1" Padding="10">
-                                                <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="14" TextColor="White" LineBreakMode="TailTruncation"/>
-                                                <Label Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="12" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation"/>
+                                                <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="14" TextColor="White" HorizontalOptions="Center" LineBreakMode="TailTruncation"/>
+                                                <Label Text="Nghệ sĩ" FontFamily="MontserratRegular" FontSize="12" TextColor="{StaticResource TextSecondary}" HorizontalOptions="Center"/>
                                             </VerticalStackLayout>
                                         </Grid>
                                     </Frame>
@@ -142,7 +142,6 @@
                 <Border.Shadow>
                     <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.5"/>
                 </Border.Shadow>
-
                 <Border.Triggers>
                     <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="False">
                         <Setter Property="IsVisible" Value="False" />
@@ -151,29 +150,23 @@
                         <Setter Property="IsVisible" Value="True" />
                     </DataTrigger>
                 </Border.Triggers>
-
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
                 </Border.GestureRecognizers>
-
                 <Grid ColumnDefinitions="65, *, 40, 40, 40" ColumnSpacing="0" Margin="0,0,10,0">
-
                     <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="15" Margin="5" BorderColor="Transparent" BackgroundColor="Transparent">
                         <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
                     </Frame>
-
                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="5,0">
                         <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" LineBreakMode="TailTruncation"/>
                         <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#AAA" LineBreakMode="TailTruncation"/>
                     </VerticalStackLayout>
-
                     <Grid Grid.Column="2" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding AudioPlayer.PreviousCommand}"/>
                         </Grid.GestureRecognizers>
                         <Path Data="{StaticResource IconPrevious}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
                     </Grid>
-
                     <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding AudioPlayer.PlayPauseCommand}"/>
@@ -186,14 +179,12 @@
                             </Path.Triggers>
                         </Path>
                     </Grid>
-
                     <Grid Grid.Column="4" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding AudioPlayer.NextCommand}"/>
                         </Grid.GestureRecognizers>
                         <Path Data="{StaticResource IconNext}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
                     </Grid>
-
                 </Grid>
             </Border>
 
@@ -204,7 +195,6 @@
                 <TapGestureRecognizer Command="{Binding CloseUserMenuCommand}"/>
             </Grid.GestureRecognizers>
         </Grid>
-
         <Border IsVisible="{Binding IsUserMenuVisible}" HorizontalOptions="Start" VerticalOptions="Fill" WidthRequest="320" BackgroundColor="#120520" StrokeThickness="0">
             <Border.Shadow>
                 <Shadow Brush="Black" Offset="5,0" Radius="20" Opacity="0.8"/>
@@ -233,36 +223,14 @@
                             </Grid.GestureRecognizers>
                         </Grid>
                         <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
-                            <Path Grid.Column="0" Data="{StaticResource IconLightning}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
-                            <Label Grid.Column="1" Text="Có gì mới" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
+                            <Path Grid.Column="0" Data="{StaticResource IconLogout}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
+                            <Label Grid.Column="1" Text="Đăng xuất" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenWhatsNewCommand}"/>
-                            </Grid.GestureRecognizers>
-                        </Grid>
-                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
-                            <Path Grid.Column="0" Data="{StaticResource IconChart}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
-                            <Label Grid.Column="1" Text="Số liệu hoạt động nghe" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenStatsCommand}"/>
-                            </Grid.GestureRecognizers>
-                        </Grid>
-                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
-                            <Path Grid.Column="0" Data="{StaticResource IconClock}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
-                            <Label Grid.Column="1" Text="Gần đây" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenHistoryCommand}"/>
-                            </Grid.GestureRecognizers>
-                        </Grid>
-                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
-                            <Path Grid.Column="0" Data="{StaticResource IconSettings}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
-                            <Label Grid.Column="1" Text="Cài đặt và quyền riêng tư" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenSettingsCommand}"/>
+                                <TapGestureRecognizer Command="{Binding PerformLogoutCommand}"/>
                             </Grid.GestureRecognizers>
                         </Grid>
                     </VerticalStackLayout>
                 </ScrollView>
-                <Button Grid.Row="2" Text="Đăng xuất" Command="{Binding PerformLogoutCommand}" BackgroundColor="#2A2A40" TextColor="White" FontFamily="MontserratBold" CornerRadius="25" HeightRequest="50" Margin="0,20,0,0"/>
             </Grid>
         </Border>
 

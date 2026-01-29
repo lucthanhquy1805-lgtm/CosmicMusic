@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-
-using SQLite;
+using SQLite; // Giữ nguyên SQLite cho tính năng tải nhạc
+using System.IO; // 👇 Thêm cái này để dùng File.Exists
 
 namespace CosmicMusic.Models
 {
@@ -14,17 +14,25 @@ namespace CosmicMusic.Models
         public string Title { get; set; }       // Tên bài hát
         public string Artist { get; set; }      // Ca sĩ
         public string Album { get; set; }       // Album
-        public string CoverImage { get; set; }  // Link ảnh bìa (Online hoặc Local)
+        public string CoverImage { get; set; }  // Link ảnh bìa
 
-        public string AudioUrl { get; set; }    // Link nhạc Online (https://...)
-        public string LocalPath { get; set; }   // Đường dẫn file sau khi tải về
+        public string AudioUrl { get; set; }    // Link nhạc AWS S3
+        public string LocalPath { get; set; }   // Đường dẫn file tải về (nếu có)
 
-        public double Duration { get; set; }    // Tổng thời gian (giây)
-        public bool IsFavorite { get; set; }    // Đánh dấu yêu thích
+        public double Duration { get; set; }    // Thời lượng (giây)
+        public bool IsFavorite { get; set; }    // Yêu thích
 
-        // --- Các thuộc tính hỗ trợ (Không lưu vào Database) ---
-        public bool IsPremium { get; set; } = false;
+        // --- CÁC TRƯỜNG QUAN TRỌNG CHO FIREBASE ---
 
+        public bool IsPremium { get; set; }     // Bài VIP (FirestoreService cần cái này)
+
+        // 👇 BẮT BUỘC THÊM DÒNG NÀY (Nếu không FirestoreService sẽ lỗi đỏ)
+        public bool IsFeatured { get; set; }    // Bài nổi bật hiện Home
+
+        [Ignore] // SQLite không lưu List, nên cần đánh dấu Ignore hoặc dùng Converter
+        public List<string> SearchKeywords { get; set; } = new List<string>();
+
+        // --- Thuộc tính tính toán ---
         [Ignore]
         public bool IsDownloaded => !string.IsNullOrEmpty(LocalPath) && File.Exists(LocalPath);
     }
