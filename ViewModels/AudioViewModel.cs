@@ -394,5 +394,29 @@ namespace CosmicMusic.ViewModels
                 WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
             }
         }
+        // ... (Các code cũ giữ nguyên)
+
+        // 👇 HÀM DỌN DẸP KHI ĐĂNG XUẤT (RESET TOÀN BỘ)
+        public void Cleanup()
+        {
+            // 1. Dừng nhạc
+            if (_mediaElement != null)
+            {
+                _mediaElement.Stop();
+                _mediaElement.Source = null; // Ngắt kết nối file nhạc
+            }
+
+            // 2. Reset các biến trạng thái
+            IsPlaying = false;
+            CurrentSong = null;
+
+            // 3. Xóa danh sách phát hiện tại
+            if (Playlist != null) Playlist.Clear();
+
+            // 4. Reset thời gian về 0
+            CurrentPosition = TimeSpan.Zero;
+            Duration = TimeSpan.Zero;
+        }
     }
 }
+    
