@@ -6,13 +6,22 @@
              xmlns:models="clr-namespace:CosmicMusic.Models"
              x:Class="CosmicMusic.Views.SearchPage"
              x:DataType="viewmodels:SearchViewModel"
-             BackgroundColor="{StaticResource PrimaryDark}"
-             Title="Search">
+             Title="Search"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#1E0B28" Offset="0.0" />
+            <GradientStop Color="#050208" Offset="0.5" />
+        </LinearGradientBrush>
+    </ContentPage.Background>
 
     <ContentPage.Resources>
         <ResourceDictionary>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
+            <toolkit:BoolToObjectConverter x:Key="BoolToVisibleConverter" TrueObject="True" FalseObject="False"/>
+            <Color x:Key="CosmicPink">#D946EF</Color>
 
             <x:String x:Key="IconPrevious">M6,6H8V18H6M9.5,12L18,18V6</x:String>
             <x:String x:Key="IconNext">M16,18H18V6H16M6,18L14.5,12L6,6</x:String>
@@ -21,25 +30,40 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto, *">
+    <Grid RowDefinitions="Auto, Auto, *">
 
-        <Border Grid.Row="0" Margin="20,10,20,10" StrokeShape="RoundRectangle 10" BackgroundColor="#333" StrokeThickness="0" Padding="10,0">
+        <Label Grid.Row="0" 
+               Text="Search" 
+               FontFamily="MontserratBold" 
+               FontSize="28" 
+               TextColor="White" 
+               Margin="20,20,20,10"/>
+
+        <Border Grid.Row="1" 
+                Margin="20,0,20,20" 
+                StrokeShape="RoundRectangle 8" 
+                BackgroundColor="#332A38" 
+                StrokeThickness="0" 
+                HeightRequest="50" 
+                Padding="15,0">
             <Grid ColumnDefinitions="30, *, 30">
-                <ImageButton Grid.Column="0" Command="{Binding StartSearchingCommand}" HeightRequest="20" WidthRequest="20" HorizontalOptions="Start">
+                <ImageButton Grid.Column="0" Command="{Binding PerformSearchCommand}" HeightRequest="22" WidthRequest="22" HorizontalOptions="Start">
                     <ImageButton.Source>
-                        <FontImageSource Glyph="🔍" Color="#AAA" Size="20"/>
+                        <FontImageSource Glyph="🔍" Color="#AAA" Size="22"/>
                     </ImageButton.Source>
                 </ImageButton>
 
                 <Entry Grid.Column="1" 
                        Text="{Binding SearchText}"
-                       Placeholder="Songs, Artists, Podcasts" 
-                       PlaceholderColor="#AAA" 
+                       Placeholder="Songs, artists, or playlists" 
+                       PlaceholderColor="#888" 
                        TextColor="White" 
-                       VerticalOptions="Center">
-                    <Entry.Behaviors>
-                        <toolkit:EventToCommandBehavior EventName="Focused" Command="{Binding StartSearchingCommand}" />
-                    </Entry.Behaviors>
+                       FontSize="16"
+                       FontFamily="MontserratRegular"
+                       VerticalOptions="Center"
+                       Margin="5,0"
+                       ClearButtonVisibility="WhileEditing" 
+                       ReturnCommand="{Binding PerformSearchCommand}">
                 </Entry>
 
                 <ImageButton Grid.Column="2" 
@@ -48,17 +72,17 @@
                              HeightRequest="30" WidthRequest="30"
                              IsVisible="{Binding IsExploring, Converter={StaticResource InvertedBoolConverter}}">
                     <ImageButton.Source>
-                        <FontImageSource Glyph="✖" Color="White" Size="18"/>
+                        <FontImageSource Glyph="✖" Color="#AAA" Size="18"/>
                     </ImageButton.Source>
                 </ImageButton>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
 
-            <ScrollView IsVisible="{Binding IsExploring}" Padding="20,0,20,80">
-                <VerticalStackLayout Spacing="20">
-                    <Label Text="Browse All" FontFamily="MontserratBold" FontSize="18" TextColor="White"/>
+            <ScrollView IsVisible="{Binding IsExploring}" Padding="20,0,20,90">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Top Genres" FontFamily="MontserratBold" FontSize="18" TextColor="White"/>
 
                     <CollectionView ItemsSource="{Binding BrowseCategories}">
                         <CollectionView.ItemsLayout>
@@ -66,9 +90,7 @@
                         </CollectionView.ItemsLayout>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="viewmodels:BrowseCategory">
-                                <Border HeightRequest="110" 
-                                        StrokeShape="RoundRectangle 10" 
-                                        StrokeThickness="0">
+                                <Border HeightRequest="100" StrokeShape="RoundRectangle 10" StrokeThickness="0" BackgroundColor="Transparent">
                                     <Grid>
                                         <BoxView>
                                             <BoxView.Background>
@@ -78,23 +100,8 @@
                                                 </LinearGradientBrush>
                                             </BoxView.Background>
                                         </BoxView>
-
-                                        <Label Text="{Binding Icon}" 
-                                               FontSize="50" 
-                                               HorizontalOptions="End" 
-                                               VerticalOptions="End" 
-                                               Rotation="-20" 
-                                               TranslationX="10" 
-                                               TranslationY="10"
-                                               Opacity="0.8"/>
-
-                                        <Label Text="{Binding Title}" 
-                                               FontFamily="MontserratBold" 
-                                               FontSize="18" 
-                                               TextColor="White" 
-                                               Margin="15,15,0,0"
-                                               HorizontalOptions="Start" 
-                                               VerticalOptions="Start"/>
+                                        <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="16" TextColor="White" Margin="12" HorizontalOptions="Start" VerticalOptions="End"/>
+                                        <Label Text="{Binding Icon}" FontSize="50" HorizontalOptions="End" VerticalOptions="End" Rotation="25" TranslationX="15" TranslationY="5" Opacity="0.9"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -103,28 +110,70 @@
                 </VerticalStackLayout>
             </ScrollView>
 
+            <ActivityIndicator IsRunning="{Binding IsLoading}" 
+                               IsVisible="{Binding IsLoading}"
+                               Color="{StaticResource CosmicPink}"
+                               VerticalOptions="Start"
+                               HorizontalOptions="Center"
+                               Margin="0,20,0,0"/>
+
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10">
+                <VerticalStackLayout.Triggers>
+                    <MultiTrigger TargetType="VerticalStackLayout">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding IsExploring}" Value="False"/>
+                            <BindingCondition Binding="{Binding IsLoading}" Value="False"/>
+                            <BindingCondition Binding="{Binding SearchResults.Count}" Value="0"/>
+                        </MultiTrigger.Conditions>
+                        <Setter Property="IsVisible" Value="True"/>
+                    </MultiTrigger>
+                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsExploring}" Value="True">
+                        <Setter Property="IsVisible" Value="False"/>
+                    </DataTrigger>
+                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsLoading}" Value="True">
+                        <Setter Property="IsVisible" Value="False"/>
+                    </DataTrigger>
+                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding SearchResults.Count, Converter={StaticResource IsNotNullConverter}}" Value="True">
+                    </DataTrigger>
+                </VerticalStackLayout.Triggers>
+
+            </VerticalStackLayout>
+
             <CollectionView IsVisible="{Binding IsExploring, Converter={StaticResource InvertedBoolConverter}}"
                             ItemsSource="{Binding SearchResults}"
                             SelectionMode="None"
-                            Margin="0,10,0,80">
+                            Margin="0,0,0,90">
+
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10" 
+                                         IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}">
+                        <Label Text="🔍" FontSize="40" HorizontalOptions="Center" TextColor="#666"/>
+                        <Label Text="No songs found" FontSize="16" TextColor="#888" FontFamily="MontserratRegular"/>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:Song">
-                        <Grid Padding="20,10" ColumnDefinitions="60, *, 40">
+                        <Grid Padding="20,10" ColumnDefinitions="55, *, 40">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:SearchViewModel}}, Path=SelectSongCommand}" CommandParameter="{Binding .}"/>
                             </Grid.GestureRecognizers>
-                            <Frame Grid.Column="0" CornerRadius="5" Padding="0" IsClippedToBounds="True" HeightRequest="50" WidthRequest="50">
+
+                            <Frame Grid.Column="0" CornerRadius="4" Padding="0" IsClippedToBounds="True" HeightRequest="50" WidthRequest="50" BorderColor="Transparent">
                                 <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
                             </Frame>
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Margin="15,0,0,0">
-                                <Label Text="{Binding Title}" TextColor="White" FontAttributes="Bold" FontSize="16" LineBreakMode="TailTruncation"/>
-                                <Label Text="{Binding Artist}" TextColor="#AAA" FontSize="14" LineBreakMode="TailTruncation"/>
+
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Margin="15,0,0,0" Spacing="2">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="{Binding Title}" TextColor="White" FontFamily="MontserratBold" FontSize="15" LineBreakMode="TailTruncation" MaximumWidthRequest="180"/>
+                                    <Border IsVisible="{Binding IsPremium}" BackgroundColor="#FFD700" StrokeThickness="0" Padding="5,0" HeightRequest="16" StrokeShape="RoundRectangle 4" VerticalOptions="Center">
+                                        <Label Text="VIP" TextColor="Black" FontSize="9" FontFamily="MontserratBold" VerticalOptions="Center"/>
+                                    </Border>
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding Artist}" TextColor="#AAA" FontFamily="MontserratRegular" FontSize="13" LineBreakMode="TailTruncation"/>
                             </VerticalStackLayout>
-                            <ImageButton Grid.Column="2" BackgroundColor="Transparent" IsEnabled="False" VerticalOptions="Center">
-                                <ImageButton.Source>
-                                    <FontImageSource Glyph="▶" Color="#AAA" Size="20"/>
-                                </ImageButton.Source>
-                            </ImageButton>
+
+                            <Label Grid.Column="2" Text="▶" TextColor="White" FontSize="14" VerticalOptions="Center" HorizontalOptions="End" Opacity="0.5"/>
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -134,13 +183,12 @@
                     Padding="0"
                     Stroke="{StaticResource CosmicPink}"
                     StrokeThickness="1"
-                    BackgroundColor="#252535"
-                    StrokeShape="RoundRectangle 15"
+                    BackgroundColor="#251035"
+                    StrokeShape="RoundRectangle 12"
                     HeightRequest="65"
                     VerticalOptions="End">
-
                 <Border.Shadow>
-                    <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.5"/>
+                    <Shadow Brush="Black" Offset="0,4" Radius="10" Opacity="0.7"/>
                 </Border.Shadow>
 
                 <Border.Triggers>
@@ -156,29 +204,28 @@
                     <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
                 </Border.GestureRecognizers>
 
-                <Grid ColumnDefinitions="65, *, 40, 40, 40" ColumnSpacing="0" Margin="0,0,10,0">
-
-                    <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="15" Margin="5" BorderColor="Transparent" BackgroundColor="Transparent">
+                <Grid ColumnDefinitions="60, *, 40, 40" ColumnSpacing="0">
+                    <Frame Grid.Column="0" Padding="0" IsClippedToBounds="True" CornerRadius="8" Margin="8" BorderColor="Transparent" BackgroundColor="Transparent">
                         <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
                     </Frame>
 
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="5,0">
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0" Margin="5,0">
                         <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#AAA" LineBreakMode="TailTruncation"/>
+                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#BBB" LineBreakMode="TailTruncation"/>
                     </VerticalStackLayout>
 
                     <Grid Grid.Column="2" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                         <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding AudioPlayer.PreviousCommand}"/>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.ToggleFavoriteCommand}"/>
                         </Grid.GestureRecognizers>
-                        <Path Data="{StaticResource IconPrevious}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                        <Label Text="❤" TextColor="{Binding AudioPlayer.FavoriteColor}" FontSize="18" VerticalOptions="Center" HorizontalOptions="Center"/>
                     </Grid>
 
-                    <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                    <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40" Margin="0,0,5,0">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding AudioPlayer.PlayPauseCommand}"/>
                         </Grid.GestureRecognizers>
-                        <Path Data="{StaticResource IconPlay}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Path Data="{StaticResource IconPlay}" Fill="White" Aspect="Uniform" HeightRequest="20" WidthRequest="20" HorizontalOptions="Center" VerticalOptions="Center">
                             <Path.Triggers>
                                 <DataTrigger TargetType="Path" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
                                     <Setter Property="Data" Value="{StaticResource IconPause}"/>
@@ -186,14 +233,6 @@
                             </Path.Triggers>
                         </Path>
                     </Grid>
-
-                    <Grid Grid.Column="4" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding AudioPlayer.NextCommand}"/>
-                        </Grid.GestureRecognizers>
-                        <Path Data="{StaticResource IconNext}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
-                    </Grid>
-
                 </Grid>
             </Border>
 

@@ -18,6 +18,7 @@
     <ContentPage.Resources>
         <ResourceDictionary>
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
+            <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
             <toolkit:BoolToObjectConverter x:Key="BoolToIconConverter" TrueObject="⏸" FalseObject="▶"/>
 
             <x:String x:Key="IconUserOutline">M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z</x:String>
@@ -62,21 +63,23 @@
 
                     <VerticalStackLayout Spacing="15">
                         <Label Text="Featured Albums" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF"/>
-                        <CollectionView ItemsSource="{Binding FeaturedAlbums}" HeightRequest="220">
+                        <CollectionView ItemsSource="{Binding FeaturedAlbums}" HeightRequest="240">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:Album">
-                                    <Frame HeightRequest="220" WidthRequest="220" CornerRadius="20" Padding="0" IsClippedToBounds="True" BorderColor="#338E2DE2" BackgroundColor="#251035">
+                                    <Frame HeightRequest="230" WidthRequest="160" CornerRadius="16" Padding="0" IsClippedToBounds="True" BorderColor="#338E2DE2" BackgroundColor="#251035">
                                         <Frame.GestureRecognizers>
                                             <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=OpenAlbumCommand}" CommandParameter="{Binding .}"/>
                                         </Frame.GestureRecognizers>
-                                        <Grid RowDefinitions="*, Auto">
+
+                                        <Grid RowDefinitions="160, *">
                                             <Image Grid.Row="0" Source="{Binding CoverImage}" Aspect="AspectFill"/>
-                                            <VerticalStackLayout Grid.Row="1" Padding="15">
-                                                <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="16" TextColor="White" LineBreakMode="TailTruncation"/>
-                                                <Label Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="14" TextColor="#AAA"/>
+
+                                            <VerticalStackLayout Grid.Row="1" Padding="10" VerticalOptions="Center">
+                                                <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="14" TextColor="White" LineBreakMode="TailTruncation" MaxLines="1"/>
+                                                <Label Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="12" TextColor="#AAA" LineBreakMode="TailTruncation"/>
                                             </VerticalStackLayout>
                                         </Grid>
                                     </Frame>
@@ -87,26 +90,23 @@
 
                     <VerticalStackLayout Spacing="15">
                         <Label Text="Top Artists" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF"/>
-                        <CollectionView ItemsSource="{Binding TopArtists}" HeightRequest="180">
+                        <CollectionView ItemsSource="{Binding TopArtists}" HeightRequest="160">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:Album">
-                                    <Frame HeightRequest="180" WidthRequest="150" CornerRadius="15" Padding="0" IsClippedToBounds="True" BorderColor="#338E2DE2" BackgroundColor="#251035">
-                                        <Frame.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=OpenAlbumCommand}" CommandParameter="{Binding .}"/>
-                                        </Frame.GestureRecognizers>
-                                        <Grid RowDefinitions="*, Auto">
-                                            <Frame Grid.Row="0" CornerRadius="75" HeightRequest="120" WidthRequest="120" HorizontalOptions="Center" Margin="0,10,0,0" Padding="0" IsClippedToBounds="True">
-                                                <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
-                                            </Frame>
-                                            <VerticalStackLayout Grid.Row="1" Padding="10">
-                                                <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="14" TextColor="White" HorizontalOptions="Center" LineBreakMode="TailTruncation"/>
-                                                <Label Text="Nghệ sĩ" FontFamily="MontserratRegular" FontSize="12" TextColor="#AAA" HorizontalOptions="Center"/>
-                                            </VerticalStackLayout>
-                                        </Grid>
-                                    </Frame>
+                                    <VerticalStackLayout Spacing="8" WidthRequest="110">
+
+                                        <Frame CornerRadius="55" HeightRequest="110" WidthRequest="110" HorizontalOptions="Center" Padding="0" IsClippedToBounds="True" BorderColor="#338E2DE2" BackgroundColor="#251035">
+                                            <Frame.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=OpenAlbumCommand}" CommandParameter="{Binding .}"/>
+                                            </Frame.GestureRecognizers>
+                                            <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                        </Frame>
+
+                                        <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" HorizontalOptions="Center" LineBreakMode="TailTruncation"/>
+                                    </VerticalStackLayout>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
@@ -114,7 +114,13 @@
 
                     <VerticalStackLayout Spacing="15">
                         <Label Text="Recently Played" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF"/>
-                        <CollectionView ItemsSource="{Binding Playlist}" SelectionMode="None" HeightRequest="300">
+
+                        <Label Text="Hãy nghe và cảm nhận... 🎵" 
+                               TextColor="#777" FontSize="14" FontFamily="MontserratRegular"
+                               HorizontalOptions="Center" Padding="20"
+                               IsVisible="{Binding HasHistory, Converter={StaticResource InvertedBoolConverter}}"/>
+
+                        <CollectionView ItemsSource="{Binding RecentlyPlayedList}" SelectionMode="None" HeightRequest="300" IsVisible="{Binding HasHistory}">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:Song">
                                     <Grid Padding="0,5">
@@ -141,7 +147,7 @@
                                                     <Label Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="13" TextColor="#AAA"/>
                                                 </VerticalStackLayout>
 
-                                                <Label Grid.Column="2" Text="⋮" TextColor="#AAA" FontSize="20" VerticalOptions="Center"/>
+                                                <Label Grid.Column="2" Text="ılı" TextColor="#E0B0FF" FontSize="20" VerticalOptions="Center"/>
                                             </Grid>
                                         </Frame>
                                     </Grid>

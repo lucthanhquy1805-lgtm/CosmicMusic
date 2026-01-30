@@ -10,8 +10,15 @@ using System.Linq;
 
 namespace CosmicMusic.ViewModels
 {
-    // Class tin nhắn để báo Library cập nhật lại
+    // Class tin nhắn để báo Library cập nhật lại (Giữ nguyên)
     public class RefreshLibraryMessage { }
+
+    // 👇 THÊM MỚI: Class tin nhắn báo bài hát vừa được phát (Để Home cập nhật Recently Played)
+    public class SongPlayedMessage
+    {
+        public Song PlayedSong { get; set; }
+        public SongPlayedMessage(Song song) => PlayedSong = song;
+    }
 
     public partial class AudioViewModel : ObservableObject
     {
@@ -40,7 +47,7 @@ namespace CosmicMusic.ViewModels
         [NotifyPropertyChangedFor(nameof(TotalDurationText))]
         private TimeSpan _duration;
 
-        // 👇 SỬA LỖI Ở ĐÂY: Biến này để Binding UI (Màu sắc)
+        // Biến này để Binding UI (Màu sắc nút Repeat)
         [ObservableProperty] private bool _isRepeat;
 
         public string TotalDurationText => $"{Duration:mm\\:ss}";
@@ -77,8 +84,7 @@ namespace CosmicMusic.ViewModels
         public string RepeatColor => RepeatMode == 0 ? "#FFFFFF" : "#D946EF";
         public string RepeatIcon => RepeatMode == 1 ? "🔂" : "🔁";
 
-        // 👇 QUAN TRỌNG: Hàm này tự chạy khi RepeatMode thay đổi
-        // Nó sẽ cập nhật IsRepeat để giao diện biết mà đổi màu
+        // Hàm này tự chạy khi RepeatMode thay đổi để cập nhật màu icon
         partial void OnRepeatModeChanged(int value)
         {
             IsRepeat = value > 0;
@@ -91,7 +97,6 @@ namespace CosmicMusic.ViewModels
         {
             if (_mediaElement == newMediaElement) return;
 
-            // Gỡ bỏ sự kiện ở cái cũ
             if (_mediaElement != null)
             {
                 try
@@ -99,12 +104,10 @@ namespace CosmicMusic.ViewModels
                     _mediaElement.MediaOpened -= OnMediaOpened;
                     _mediaElement.PositionChanged -= OnPositionChanged;
                     _mediaElement.MediaEnded -= OnMediaEnded;
-                    // Không Stop nhạc để giữ trải nghiệm liền mạch
                 }
                 catch { }
             }
 
-            // Gán cái mới
             _mediaElement = newMediaElement;
 
             if (_mediaElement != null)
@@ -113,7 +116,6 @@ namespace CosmicMusic.ViewModels
                 _mediaElement.PositionChanged += OnPositionChanged;
                 _mediaElement.MediaEnded += OnMediaEnded;
 
-                // Đồng bộ trạng thái ngay lập tức (Hand-off)
                 if (CurrentSong != null)
                 {
                     _mediaElement.Source = MediaSource.FromUri(CurrentSong.AudioUrl);
@@ -154,21 +156,19 @@ namespace CosmicMusic.ViewModels
 
         private void OnMediaEnded(object sender, EventArgs e)
         {
-            Next(); // Hết bài -> Tự qua bài mới
+            Next();
         }
 
         // ==========================================================
-        // 4. HÀM PHÁT NHẠC
+        // 4. HÀM PHÁT NHẠC (ĐÃ SỬA: GỬI TIN NHẮN)
         // ==========================================================
         public void PlaySong(Song song, ObservableCollection<Song>? contextList = null)
         {
             if (song == null) return;
 
-            // Kiểm tra trùng bài
             bool isSameSong = (CurrentSong != null && CurrentSong.Title == song.Title);
             if (isSameSong && IsPlaying) return;
 
-            // Cập nhật Playlist
             if (contextList != null && contextList.Count > 0)
             {
                 bool needUpdate = Playlist.Count != contextList.Count;
@@ -197,9 +197,13 @@ namespace CosmicMusic.ViewModels
                     _mediaElement.Source = MediaSource.FromUri(song.AudioUrl);
                 }
                 _mediaElement.Play();
+
+                // 👇 QUAN TRỌNG: Gửi tin nhắn báo cho HomeViewModel biết bài này vừa được phát
+                // Để HomeViewModel thêm vào danh sách "Recently Played"
+                WeakReferenceMessenger.Default.Send(new SongPlayedMessage(song));
             }
 
-            // --- CHECK TIM TRÊN SERVER (Giữ nguyên logic của bạn) ---
+            // --- CHECK TIM TRÊN SERVER ---
             Task.Run(async () =>
             {
                 try
@@ -227,7 +231,7 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 5. CÁC NÚT ĐIỀU KHIỂN
+        // 5. CÁC NÚT ĐIỀU KHIỂN (GIỮ NGUYÊN)
         // ==========================================================
 
         [RelayCommand]
@@ -253,10 +257,7 @@ namespace CosmicMusic.ViewModels
         [RelayCommand]
         public void ToggleRepeat()
         {
-            // Logic xoay vòng: 0 -> 1 -> 2 -> 0
             RepeatMode = (RepeatMode + 1) % 3;
-
-            // Hàm OnRepeatModeChanged sẽ tự động chạy để cập nhật màu icon
         }
 
         [RelayCommand] public async Task GoBack() => await Shell.Current.GoToAsync("..");
@@ -266,7 +267,6 @@ namespace CosmicMusic.ViewModels
         {
             if (CurrentSong == null || Playlist.Count == 0) return;
 
-            // Repeat 1 bài
             if (RepeatMode == 1 && _mediaElement != null)
             {
                 _mediaElement.SeekTo(TimeSpan.Zero);
@@ -275,7 +275,6 @@ namespace CosmicMusic.ViewModels
             }
 
             int index = -1;
-            // Tìm index thủ công để đảm bảo chính xác
             for (int i = 0; i < Playlist.Count; i++)
             {
                 if (Playlist[i].Title == CurrentSong.Title && Playlist[i].Artist == CurrentSong.Artist)
@@ -286,7 +285,6 @@ namespace CosmicMusic.ViewModels
 
             if (index == -1) { PlaySong(Playlist[0]); return; }
 
-            // Shuffle
             if (IsShuffle && Playlist.Count > 1)
             {
                 var r = new Random();
@@ -296,16 +294,8 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
-            // Normal Next
-            if (index < Playlist.Count - 1)
-            {
-                PlaySong(Playlist[index + 1]);
-            }
-            else
-            {
-                // Loop All (Mặc định hoặc Mode 2)
-                PlaySong(Playlist[0]);
-            }
+            if (index < Playlist.Count - 1) PlaySong(Playlist[index + 1]);
+            else PlaySong(Playlist[0]);
         }
 
         [RelayCommand]
@@ -332,9 +322,6 @@ namespace CosmicMusic.ViewModels
             else PlaySong(Playlist[Playlist.Count - 1]);
         }
 
-        // ==========================================================
-        // 6. XỬ LÝ THẢ TIM VÀ PLAYLIST (GIỮ NGUYÊN CỦA BẠN)
-        // ==========================================================
         [RelayCommand]
         public async Task ToggleFavorite()
         {
@@ -342,7 +329,6 @@ namespace CosmicMusic.ViewModels
             string uid = Preferences.Get("UserId", "");
             if (string.IsNullOrEmpty(uid)) { await Shell.Current.DisplayAlert("Yêu cầu", "Vui lòng đăng nhập!", "OK"); return; }
 
-            // Nếu đã thích rồi thì báo (hoặc bạn có thể code thêm logic bỏ thích nếu muốn)
             if (IsFavorite) { await Shell.Current.DisplayAlert("Thông báo", "Đã có trong thư viện.", "OK"); return; }
 
             string action = await Shell.Current.DisplayActionSheet("Thêm vào thư viện", "Hủy", null, "Thêm vào Playlist có sẵn", "Tạo Playlist mới");
@@ -388,9 +374,6 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        // ==========================================================
-        // 7. DỌN DẸP (CLEANUP)
-        // ==========================================================
         public void Cleanup()
         {
             if (_mediaElement != null)

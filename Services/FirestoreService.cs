@@ -440,6 +440,97 @@ namespace CosmicMusic.Services
 
             return songs;
         }
+        // ==========================================================
+        // 5. CÁC HÀM TÌM KIẾM (SEARCH) - MỚI BỔ SUNG
+        // ==========================================================
+
+        public async Task<List<Song>> SearchSongsByKeywordsAsync(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return new List<Song>();
+
+            // 1. Chuẩn hóa từ khóa tìm kiếm
+            // Chuyển về chữ thường + Xóa khoảng trắng thừa
+            string cleanKeyword = keyword.ToLower().Trim();
+
+            // 2. Tạo Payload truy vấn Firestore
+            // Logic: Tìm trong collection "songs", điều kiện: mảng "searchKeywords" CHỨA "cleanKeyword"
+            var query = new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "songs" } },
+                    where = new
+                    {
+                        fieldFilter = new
+                        {
+                            field = new { fieldPath = "searchKeywords" },
+                            op = "ARRAY_CONTAINS", // 👈 Quan trọng: Tìm trong mảng
+                            value = new { stringValue = cleanKeyword }
+                        }
+                    },
+                    limit = 20 // Giới hạn 20 kết quả để tối ưu tốc độ
+                }
+            };
+
+            // 3. Gửi Request POST (Lưu ý: Truy vấn phức tạp phải dùng POST với URL :runQuery)
+            string runQueryUrl = $"{_baseUrl}:runQuery";
+
+            var songs = new List<Song>();
+
+            try
+            {
+                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(runQueryUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+
+                    // Firestore trả về một mảng JSON các documents
+                    // Cấu trúc: [ { "document": { ... } }, { "document": { ... } } ]
+                    // Lưu ý: Nếu không tìm thấy, nó có thể trả về mảng rỗng hoặc format khác một chút
+
+                    using var doc = JsonDocument.Parse(json);
+
+                    // Kiểm tra xem kết quả trả về có phải là mảng không
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            // Nếu có thuộc tính "document" thì mới là kết quả tìm thấy
+                            if (item.TryGetProperty("document", out var d))
+                            {
+                                if (d.TryGetProperty("fields", out var fields))
+                                {
+                                    var s = new Song();
+
+                                    // Map dữ liệu (Giống hệt hàm GetAllSongsAsync)
+                                    if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+
+                                    if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
+
+                                    // Chỉ lấy bài hợp lệ
+                                    if (!string.IsNullOrEmpty(s.AudioUrl) && !string.IsNullOrEmpty(s.Title))
+                                    {
+                                        songs.Add(s);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi tìm kiếm Firestore: {ex.Message}");
+            }
+
+            return songs;
+        }
     }
 
     public class UserFirestoreInfo

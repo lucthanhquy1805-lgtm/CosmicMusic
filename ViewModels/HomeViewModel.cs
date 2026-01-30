@@ -1,14 +1,16 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using CosmicMusic.Models;
 using CosmicMusic.Services;
 using CosmicMusic.Views;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
 
 namespace CosmicMusic.ViewModels
 {
-    public partial class HomeViewModel : ObservableObject
+    public partial class HomeViewModel : ObservableObject, IRecipient<SongPlayedMessage>
     {
         private readonly MusicApiService _musicService;
         private readonly AudioViewModel _audioViewModel;
@@ -19,6 +21,9 @@ namespace CosmicMusic.ViewModels
         public ObservableCollection<Song> Playlist { get; set; } = new();
         public ObservableCollection<Album> FeaturedAlbums { get; set; } = new();
         public ObservableCollection<Album> TopArtists { get; set; } = new();
+
+        // Danh sách bài hát vừa nghe
+        public ObservableCollection<Song> RecentlyPlayedList { get; set; } = new();
 
         public AudioViewModel AudioPlayer => _audioViewModel;
 
@@ -31,18 +36,88 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private bool _isPremiumUser;
         [ObservableProperty] private string _avatarBorderColor = "#6C63FF";
 
+        [ObservableProperty] private bool _hasHistory;
+
         // 3. Khởi tạo
         public HomeViewModel(MusicApiService musicService, AudioViewModel audioViewModel)
         {
             _musicService = musicService;
             _audioViewModel = audioViewModel;
 
+            // Đăng ký nhận tin nhắn
+            WeakReferenceMessenger.Default.Register<SongPlayedMessage>(this);
+
             LoadUserAvatar();
+            LoadHistory();
             LoadSongs();
         }
 
         // ==========================================================
-        // 4. HÀM TẢI VÀ GOM NHÓM DỮ LIỆU (GIỮ NGUYÊN CỦA BẠN - ĐÃ TỐT)
+        // XỬ LÝ LỊCH SỬ NGHE NHẠC (RECENTLY PLAYED)
+        // ==========================================================
+        public void Receive(SongPlayedMessage message)
+        {
+            var song = message.PlayedSong;
+            if (song == null) return;
+
+            // Đảm bảo cập nhật UI trên Main Thread
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                var existing = RecentlyPlayedList.FirstOrDefault(s => s.Title == song.Title);
+                if (existing != null) RecentlyPlayedList.Remove(existing);
+
+                RecentlyPlayedList.Insert(0, song);
+
+                if (RecentlyPlayedList.Count > 10)
+                {
+                    RecentlyPlayedList.RemoveAt(RecentlyPlayedList.Count - 1);
+                }
+
+                HasHistory = RecentlyPlayedList.Count > 0;
+                SaveHistory();
+            });
+        }
+
+        private void SaveHistory()
+        {
+            try
+            {
+                string userId = Preferences.Get("UserId", "Guest");
+                string key = $"History_{userId}";
+                var json = JsonSerializer.Serialize(RecentlyPlayedList);
+                Preferences.Set(key, json);
+            }
+            catch { }
+        }
+
+        private void LoadHistory()
+        {
+            try
+            {
+                string userId = Preferences.Get("UserId", "Guest");
+                string key = $"History_{userId}";
+                string json = Preferences.Get(key, "");
+
+                RecentlyPlayedList.Clear();
+
+                if (!string.IsNullOrEmpty(json))
+                {
+                    var list = JsonSerializer.Deserialize<List<Song>>(json);
+                    if (list != null && list.Count > 0)
+                    {
+                        foreach (var item in list) RecentlyPlayedList.Add(item);
+                    }
+                }
+                HasHistory = RecentlyPlayedList.Count > 0;
+            }
+            catch
+            {
+                HasHistory = false;
+            }
+        }
+
+        // ==========================================================
+        // 4. HÀM TẢI VÀ GOM NHÓM DỮ LIỆU
         // ==========================================================
         private async void LoadSongs()
         {
@@ -51,47 +126,48 @@ namespace CosmicMusic.ViewModels
                 var allSongs = await _musicService.GetSongsAsync();
                 if (allSongs == null || allSongs.Count == 0) return;
 
-                // 1. NẠP LIST BÀI HÁT
-                Playlist.Clear();
-                foreach (var song in allSongs) Playlist.Add(song);
-
-                // 2. XỬ LÝ ALBUM
-                FeaturedAlbums.Clear();
-                var uniqueAlbums = allSongs
-                    .Where(s => !string.IsNullOrEmpty(s.Album))
-                    .GroupBy(s => s.Album.Trim())
-                    .Select(g => g.First())
-                    .ToList();
-
-                foreach (var s in uniqueAlbums)
+                // Cập nhật UI trên Main Thread
+                MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    FeaturedAlbums.Add(new Album
-                    {
-                        Title = s.Album.Trim(),
-                        Artist = s.Artist ?? "Unknown",
-                        CoverImage = s.CoverImage,
-                        Description = "Album"
-                    });
-                }
+                    Playlist.Clear();
+                    foreach (var song in allSongs) Playlist.Add(song);
 
-                // 3. XỬ LÝ CA SĨ
-                TopArtists.Clear();
-                var uniqueArtists = allSongs
-                    .Where(s => !string.IsNullOrEmpty(s.Artist))
-                    .GroupBy(s => s.Artist.Trim())
-                    .Select(g => g.First())
-                    .ToList();
+                    FeaturedAlbums.Clear();
+                    var uniqueAlbums = allSongs
+                        .Where(s => !string.IsNullOrEmpty(s.Album))
+                        .GroupBy(s => s.Album.Trim())
+                        .Select(g => g.First())
+                        .ToList();
 
-                foreach (var s in uniqueArtists)
-                {
-                    TopArtists.Add(new Album
+                    foreach (var s in uniqueAlbums)
                     {
-                        Title = s.Artist.Trim(),
-                        Artist = "Nghệ sĩ",
-                        CoverImage = s.CoverImage,
-                        Description = "Artist"
-                    });
-                }
+                        FeaturedAlbums.Add(new Album
+                        {
+                            Title = s.Album.Trim(),
+                            Artist = s.Artist ?? "Unknown",
+                            CoverImage = s.CoverImage,
+                            Description = "Album"
+                        });
+                    }
+
+                    TopArtists.Clear();
+                    var uniqueArtists = allSongs
+                        .Where(s => !string.IsNullOrEmpty(s.Artist))
+                        .GroupBy(s => s.Artist.Trim())
+                        .Select(g => g.First())
+                        .ToList();
+
+                    foreach (var s in uniqueArtists)
+                    {
+                        TopArtists.Add(new Album
+                        {
+                            Title = s.Artist.Trim(),
+                            Artist = "Nghệ sĩ",
+                            CoverImage = s.CoverImage,
+                            Description = "Artist"
+                        });
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -100,7 +176,7 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 5. CÁC HÀM CẬP NHẬT USER (GIỮ NGUYÊN)
+        // 5. CÁC HÀM CẬP NHẬT USER
         // ==========================================================
         public void LoadUserAvatar()
         {
@@ -122,8 +198,15 @@ namespace CosmicMusic.ViewModels
             bool isHistoryVip = Preferences.Get($"VIP_{email}", false);
             IsPremiumUser = isSessionVip || isHistoryVip;
 
-            if (IsPremiumUser) { AvatarBorderColor = "#FFD700"; if (!isSessionVip) Preferences.Set("IsPremium", true); }
-            else { AvatarBorderColor = "#6C63FF"; }
+            if (IsPremiumUser)
+            {
+                AvatarBorderColor = "#FFD700";
+                if (!isSessionVip) Preferences.Set("IsPremium", true);
+            }
+            else
+            {
+                AvatarBorderColor = "#6C63FF";
+            }
         }
 
         // ==========================================================
@@ -142,8 +225,6 @@ namespace CosmicMusic.ViewModels
         public async Task SelectSong(Song song)
         {
             if (song == null) return;
-
-            // Check VIP (Logic này của bạn đã đúng, giữ nguyên)
             bool isCurrentVip = Preferences.Get("IsPremium", false);
             if (song.IsPremium == true && isCurrentVip == false)
             {
@@ -156,7 +237,6 @@ namespace CosmicMusic.ViewModels
             await Shell.Current.GoToAsync(nameof(PlayerPage));
         }
 
-        // 👇 ĐÂY LÀ PHẦN TÔI ĐÃ SỬA LẠI CHO BẠN (QUAN TRỌNG)
         [RelayCommand]
         public async Task PerformLogout()
         {
@@ -164,32 +244,29 @@ namespace CosmicMusic.ViewModels
             bool answer = await Shell.Current.DisplayAlert("Đăng xuất", "Bạn muốn thoát?", "Có", "Không");
             if (answer)
             {
-                // 1. 🛑 DỪNG NHẠC NGAY (Code cũ thiếu dòng này)
-                // (Đảm bảo bạn đã thêm hàm Cleanup() vào AudioViewModel như hướng dẫn trước)
                 _audioViewModel.Cleanup();
 
-                // 2. Xóa dữ liệu Preferences
                 Preferences.Remove("AuthToken");
                 Preferences.Remove("UserEmail");
                 Preferences.Remove("UserName");
                 Preferences.Remove("UserId");
                 Preferences.Remove("IsPremium");
 
-                // 3. 🧹 RESET GIAO DIỆN VỀ MẶC ĐỊNH (Code cũ thiếu phần này)
-                // Để tránh việc đăng nhập lại nick thường mà vẫn hiện màu vàng VIP cũ
                 IsPremiumUser = false;
                 AvatarBorderColor = "#6C63FF";
                 UserAvatarText = "?";
                 UserName = "Khách";
 
-                // 4. Chuyển trang
+                RecentlyPlayedList.Clear();
+                HasHistory = false;
+
                 await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
             }
         }
 
-        // Các lệnh placeholder (Giữ nguyên)
         [RelayCommand] public async Task NavigateToPlayer() { if (_audioViewModel.CurrentSong != null) await Shell.Current.GoToAsync(nameof(PlayerPage)); }
-        [RelayCommand] public async Task NavigateToSearch() { await Shell.Current.GoToAsync(nameof(SearchPage)); }
+        // Lưu ý: Đã sửa lại đường dẫn điều hướng SearchPage thành Route tuyệt đối để tránh chồng chéo trang
+        [RelayCommand] public async Task NavigateToSearch() { await Shell.Current.GoToAsync("//SearchTab/SearchPage"); }
         [RelayCommand] public void TapUserAvatar() { IsUserMenuVisible = !IsUserMenuVisible; }
         [RelayCommand] public void CloseUserMenu() { IsUserMenuVisible = false; }
         [RelayCommand] public async Task OpenProfile() { IsUserMenuVisible = false; await Shell.Current.GoToAsync(nameof(ProfilePage)); }

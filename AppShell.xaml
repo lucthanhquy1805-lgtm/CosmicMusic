@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:views="clr-namespace:CosmicMusic.Views"
     Shell.FlyoutBehavior="Disabled"
-    Shell.BackgroundColor="{StaticResource PrimaryDark}"
+    Shell.BackgroundColor="#121212"
     Shell.TabBarBackgroundColor="#1E1E2C"
     Shell.TabBarTitleColor="#A569F7"
     Shell.TabBarUnselectedColor="#777777">
@@ -19,36 +19,33 @@
 
     <TabBar Route="MainTabs">
 
-        <Tab Title="Home">
+        <Tab Title="Home" Route="HomeTab">
             <Tab.Icon>
                 <FontImageSource Glyph="🏠" FontFamily="OpenSansRegular" Color="#A569F7"/>
             </Tab.Icon>
             <ShellContent ContentTemplate="{DataTemplate views:HomePage}" Route="HomePage" />
         </Tab>
 
-        <Tab Title="Search">
+        <Tab Title="Search" Route="SearchTab">
             <Tab.Icon>
                 <FontImageSource Glyph="🔍" FontFamily="OpenSansRegular" Color="#A569F7"/>
             </Tab.Icon>
             <ShellContent ContentTemplate="{DataTemplate views:SearchPage}" Route="SearchPage" />
         </Tab>
 
-        <Tab Title="Library">
+        <Tab Title="Library" Route="LibraryTab">
             <Tab.Icon>
                 <FontImageSource Glyph="📚" FontFamily="OpenSansRegular" Color="#A569F7"/>
             </Tab.Icon>
             <ShellContent ContentTemplate="{DataTemplate views:LibraryPage}" Route="LibraryPage" />
         </Tab>
 
-        <ShellContent Title="Premium"
-                  ContentTemplate="{DataTemplate views:PremiumPage}">
-            <ShellContent.Icon>
-                <FontImageSource Glyph="💎" 
-                             FontFamily="OpenSansRegular" 
-                             Color="{StaticResource Primary}"/>
-            </ShellContent.Icon>
-        </ShellContent>
+        <Tab Title="Premium" Route="PremiumTab">
+            <Tab.Icon>
+                <FontImageSource Glyph="💎" FontFamily="OpenSansRegular" Color="#A569F7"/>
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate views:PremiumPage}" Route="PremiumPage" />
+        </Tab>
 
     </TabBar>
-
 </Shell>

@@ -9,26 +9,31 @@ namespace CosmicMusic.ViewModels
 {
     public partial class SearchViewModel : ObservableObject
     {
+        private readonly FirestoreService _firestoreService;
         private readonly MusicApiService _musicService;
-
-        // AudioViewModel để điều khiển MiniPlayer
         private readonly AudioViewModel _audioViewModel;
         public AudioViewModel AudioPlayer => _audioViewModel;
 
         [ObservableProperty]
         private string _searchText;
 
-        public ObservableCollection<Song> SearchResults { get; set; } = new();
+        // 👇 Biến này cần thiết để ActivityIndicator trong XAML hoạt động
+        [ObservableProperty]
+        private bool _isLoading;
 
+        public ObservableCollection<Song> SearchResults { get; set; } = new();
         public ObservableCollection<BrowseCategory> BrowseCategories { get; set; } = new();
 
         [ObservableProperty]
         private bool _isExploring = true;
 
-        public SearchViewModel(MusicApiService musicService, AudioViewModel audioViewModel)
+        private CancellationTokenSource _searchCancellationTokenSource;
+
+        public SearchViewModel(MusicApiService musicService, AudioViewModel audioViewModel, FirestoreService firestoreService)
         {
             _musicService = musicService;
             _audioViewModel = audioViewModel;
+            _firestoreService = firestoreService;
 
             LoadCategories();
         }
@@ -36,7 +41,6 @@ namespace CosmicMusic.ViewModels
         private void LoadCategories()
         {
             BrowseCategories.Clear();
-            // Bảng màu Cosmic
             BrowseCategories.Add(new BrowseCategory { Title = "Pop", StartColor = "#FF0055", EndColor = "#FF00CC", Icon = "🎤" });
             BrowseCategories.Add(new BrowseCategory { Title = "Rock", StartColor = "#CC2B5E", EndColor = "#753A88", Icon = "🎸" });
             BrowseCategories.Add(new BrowseCategory { Title = "Hip-Hop", StartColor = "#FF9966", EndColor = "#FF5E62", Icon = "🎧" });
@@ -47,54 +51,84 @@ namespace CosmicMusic.ViewModels
             BrowseCategories.Add(new BrowseCategory { Title = "Gaming", StartColor = "#11998e", EndColor = "#38ef7d", Icon = "🎮" });
         }
 
+        // 🟢 XỬ LÝ GÕ PHÍM (DEBOUNCE)
         partial void OnSearchTextChanged(string value)
         {
-            if (!string.IsNullOrWhiteSpace(value))
+            // 1. Hủy lệnh tìm cũ
+            _searchCancellationTokenSource?.Cancel();
+            _searchCancellationTokenSource = new CancellationTokenSource();
+            var token = _searchCancellationTokenSource.Token;
+
+            if (string.IsNullOrWhiteSpace(value))
             {
-                IsExploring = false;
-                PerformSearch();
+                // Nếu xóa hết chữ -> Quay về màn hình khám phá
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    IsExploring = true;
+                    SearchResults.Clear();
+                    IsLoading = false;
+                });
+                return;
             }
-            else
+
+            // 2. Chuyển trạng thái UI ngay lập tức
+            IsExploring = false;
+            IsLoading = true; // Hiện vòng xoay ngay khi gõ
+
+            Task.Run(async () =>
             {
-                StartSearching();
-            }
+                try
+                {
+                    // Đợi 500ms (Chống spam request)
+                    await Task.Delay(500, token);
+
+                    if (!token.IsCancellationRequested)
+                    {
+                        MainThread.BeginInvokeOnMainThread(async () =>
+                        {
+                            await PerformSearchInternal(value);
+                        });
+                    }
+                }
+                catch (TaskCanceledException) { }
+            });
         }
 
-        [RelayCommand]
-        public async Task StartSearching()
+        // 🟢 HÀM TÌM KIẾM THỰC SỰ
+        private async Task PerformSearchInternal(string keyword)
         {
-            IsExploring = false;
+            if (string.IsNullOrWhiteSpace(keyword)) return;
 
-            if (string.IsNullOrWhiteSpace(SearchText))
+            IsLoading = true; // Bật Loading
+
+            try
             {
-                var songs = await _musicService.GetSongsAsync();
+                // Gọi API tìm kiếm
+                var songs = await _firestoreService.SearchSongsByKeywordsAsync(keyword);
+
                 SearchResults.Clear();
-                foreach (var song in songs.Take(5))
+                if (songs != null && songs.Count > 0)
                 {
-                    SearchResults.Add(song);
+                    foreach (var song in songs)
+                    {
+                        SearchResults.Add(song);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi tìm kiếm: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false; // Tắt Loading dù thành công hay thất bại
             }
         }
 
         [RelayCommand]
         public async Task PerformSearch()
         {
-            if (string.IsNullOrWhiteSpace(SearchText)) return;
-
-            var songs = await _musicService.GetSongsAsync();
-            if (songs == null) return;
-
-            SearchResults.Clear();
-
-            var filtered = songs.Where(s =>
-                (s.Title != null && s.Title.Contains(SearchText, StringComparison.OrdinalIgnoreCase)) ||
-                (s.Artist != null && s.Artist.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
-            );
-
-            foreach (var song in filtered)
-            {
-                SearchResults.Add(song);
-            }
+            await PerformSearchInternal(SearchText);
         }
 
         [RelayCommand]
@@ -104,6 +138,8 @@ namespace CosmicMusic.ViewModels
             {
                 SearchText = string.Empty;
                 IsExploring = true;
+                IsLoading = false;
+                SearchResults.Clear();
                 return;
             }
             await Shell.Current.GoToAsync("..");
@@ -114,41 +150,27 @@ namespace CosmicMusic.ViewModels
         {
             if (song == null) return;
 
-            // Phát nhạc
+            bool isUserVip = Preferences.Get("IsPremium", false);
+            if (song.IsPremium == true && isUserVip == false)
+            {
+                bool answer = await Shell.Current.DisplayAlert("Premium Content 👑",
+                    "Bài hát này dành riêng cho thành viên VIP. Nâng cấp ngay?",
+                    "Xem gói VIP", "Để sau");
+
+                if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
+                return;
+            }
+
             var contextList = new ObservableCollection<Song>(SearchResults);
             _audioViewModel.PlaySong(song, contextList);
-
-            // Chuyển trang (Gọi hàm NavigateToPlayer để tái sử dụng logic)
             await NavigateToPlayer();
         }
 
-        // 👇👇👇 ĐÂY LÀ HÀM QUAN TRỌNG VỪA ĐƯỢC THÊM 👇👇👇
-        // Hàm này xử lý khi bấm vào Mini Player
         [RelayCommand]
         public async Task NavigateToPlayer()
         {
-            // Nếu chưa có bài hát nào đang phát thì không làm gì cả
-            if (_audioViewModel.CurrentSong == null) return;
-
-            var currentSong = _audioViewModel.CurrentSong;
-
-            // Đóng gói dữ liệu để gửi sang trang PlayerPage
-            var libraryItem = new LibraryItem
-            {
-                Title = currentSong.Title,
-                Subtitle = currentSong.Artist,
-                CoverImage = currentSong.CoverImage,
-                Url = currentSong.AudioUrl,
-                ImageColor = "#120520"
-            };
-
-            var navigationParameter = new Dictionary<string, object>
-            {
-                { "SongData", libraryItem }
-            };
-
-            // Chuyển sang màn hình Player
-            await Shell.Current.GoToAsync(nameof(PlayerPage), navigationParameter);
+            if (_audioViewModel.CurrentSong != null)
+                await Shell.Current.GoToAsync(nameof(PlayerPage));
         }
     }
 
