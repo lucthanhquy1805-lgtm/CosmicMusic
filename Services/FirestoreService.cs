@@ -83,7 +83,7 @@ namespace CosmicMusic.Services
                         ownerId = new { stringValue = uid },
                         coverImage = new { stringValue = song.CoverImage },
                         isSystem = new { booleanValue = false },
-                        songCount = new { integerValue = 1 }
+                        songCount = new { integerValue = 0 }
                     }
                 };
                 await _httpClient.PatchAsync(playlistUrl, new StringContent(JsonSerializer.Serialize(newPlaylist), Encoding.UTF8, "application/json"));

@@ -17,19 +17,21 @@
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            <Color x:Key="AccentColor">#A569F7</Color>
+            <Color x:Key="CosmicPink">#D946EF</Color>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
 
             <x:String x:Key="IconArrowDown">M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z</x:String>
             <x:String x:Key="IconHeart">M12,21.35L10.55,20.03C5.4,15.36 2,12.27 2,8.5C2,5.41 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.08C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.41 22,8.5C22,12.27 18.6,15.36 13.45,20.03L12,21.35Z</x:String>
             <x:String x:Key="IconShuffle">M10.59,9.17L5.41,4L4,5.41L9.17,10.58L10.59,9.17M14.5,4L16.54,6.04L4,18.59L5.41,20L17.96,7.46L20,9.5V4H14.5M14.5,20H20V14.5L17.96,16.54L12,10.59L13.41,9.17L19.38,15.13L14.5,20Z</x:String>
-            <x:String x:Key="IconRepeat">M7,7H17V10L21,6L17,2V5H5V11H7V7M17,17H7V14L3,18L7,22V19H19V13H17V17Z</x:String>
             <x:String x:Key="IconVolumeLow">M5,9V15H9L14,20V4L9,9M18.5,12C18.5,10.23 17.5,8.71 16,7.97V16.02C17.5,15.29 18.5,13.76 18.5,12Z</x:String>
             <x:String x:Key="IconVolumeHigh">M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16.02C15.5,15.29 16.5,13.76 16.5,12M5,9V15H9L14,20V4L9,9H5Z</x:String>
             <x:String x:Key="IconPrevious">M6,6H8V18H6M9.5,12L18,18V6</x:String>
             <x:String x:Key="IconNext">M16,18H18V6H16M6,18L14.5,12L6,6</x:String>
             <x:String x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</x:String>
             <x:String x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</x:String>
+
+            <x:String x:Key="IconRepeat">M7,7H17V10L21,6L17,2V5H5V11H7V7M17,17H7V14L3,18L7,22V19H19V13H17V17Z</x:String>
+            <x:String x:Key="IconRepeatOne">M7,7H17V10L21,6L17,2V5H5V11H7V7M17,17H7V14L3,18L7,22V19H19V13H17V17M13,15V9H11L9,10V11H10.5V15H9V16H14V15H13Z</x:String>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -44,21 +46,24 @@
             </Grid>
 
             <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="3" VerticalOptions="Center">
-                <Label Text="PLAYING FROM ALBUM" FontSize="10" TextColor="#BBB" FontFamily="MontserratRegular" HorizontalOptions="Center" CharacterSpacing="1"/>
+                <Label Text="PLAYING FROM ALBUM" FontSize="10" TextColor="#E0B0FF" FontFamily="MontserratRegular" HorizontalOptions="Center" CharacterSpacing="1"/>
                 <Label Text="{Binding CurrentSong.Album, TargetNullValue='Unknown Album'}" FontFamily="MontserratBold" FontSize="14" TextColor="White" HorizontalOptions="Center" LineBreakMode="TailTruncation"/>
             </VerticalStackLayout>
 
             <Label Grid.Column="2" Text="⋮" FontSize="30" TextColor="White" VerticalOptions="Center" HorizontalOptions="Center"/>
         </Grid>
 
-        <Border Grid.Row="1" StrokeShape="RoundRectangle 20" StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="260" WidthRequest="260">
+        <Border Grid.Row="1" StrokeShape="RoundRectangle 20" StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="280" WidthRequest="280" BackgroundColor="#251035">
+            <Border.Shadow>
+                <Shadow Brush="{StaticResource CosmicPink}" Offset="0,10" Radius="30" Opacity="0.5"/>
+            </Border.Shadow>
             <Image Source="{Binding CurrentSong.CoverImage, TargetNullValue='cover_chill.jpg'}" Aspect="AspectFill"/>
         </Border>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*, 60" VerticalOptions="Center" Margin="0, 15, 0, 0" ColumnSpacing="5">
+        <Grid Grid.Row="2" ColumnDefinitions="*, 60" VerticalOptions="Center" Margin="0, 20, 0, 0" ColumnSpacing="5">
             <VerticalStackLayout Grid.Column="0" Spacing="5" VerticalOptions="Center">
                 <Label Text="{Binding CurrentSong.Title}" FontFamily="MontserratBold" FontSize="22" FontAttributes="Bold" TextColor="White" LineBreakMode="TailTruncation" MaxLines="1"/>
-                <Label Text="{Binding CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="16" TextColor="#AAA" LineBreakMode="TailTruncation"/>
+                <Label Text="{Binding CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="16" TextColor="#E0B0FF" LineBreakMode="TailTruncation"/>
             </VerticalStackLayout>
 
             <Grid Grid.Column="1" WidthRequest="50" HeightRequest="50" HorizontalOptions="Center" VerticalOptions="Center" BackgroundColor="Transparent">
@@ -68,7 +73,7 @@
                 <Path Data="{StaticResource IconHeart}" Aspect="Uniform" HeightRequest="24" WidthRequest="24" VerticalOptions="Center" HorizontalOptions="Center">
                     <Path.Style>
                         <Style TargetType="Path">
-                            <Setter Property="Fill" Value="{StaticResource AccentColor}"/>
+                            <Setter Property="Fill" Value="#777"/>
                             <Style.Triggers>
                                 <DataTrigger TargetType="Path" Binding="{Binding IsFavorite}" Value="True">
                                     <Setter Property="Fill" Value="Red"/>
@@ -81,11 +86,12 @@
         </Grid>
 
         <VerticalStackLayout Grid.Row="3" Spacing="5" VerticalOptions="End">
-            <Slider MinimumTrackColor="{StaticResource AccentColor}" MaximumTrackColor="#555" ThumbColor="White" Minimum="0" Maximum="{Binding Duration.TotalSeconds}" Value="{Binding CurrentPositionSeconds}" DragStartedCommand="{Binding DragStartedCommand}" DragCompletedCommand="{Binding DragCompletedCommand}" />
+            <Slider MinimumTrackColor="{StaticResource CosmicPink}" MaximumTrackColor="#33FFFFFF" ThumbColor="White" 
+                    Minimum="0" Maximum="{Binding Duration.TotalSeconds}" Value="{Binding CurrentPositionSeconds}" 
+                    DragStartedCommand="{Binding DragStartedCommand}" DragCompletedCommand="{Binding DragCompletedCommand}" />
 
             <Grid ColumnDefinitions="Auto, *, Auto">
                 <Label Text="{Binding CurrentPositionText}" FontFamily="MontserratRegular" TextColor="#BBB" FontSize="12"/>
-
                 <Label Grid.Column="2" Text="{Binding TotalDurationText}" FontFamily="MontserratRegular" TextColor="#BBB" FontSize="12"/>
             </Grid>
         </VerticalStackLayout>
@@ -99,10 +105,10 @@
                 <Path Data="{StaticResource IconShuffle}" Aspect="Uniform" HeightRequest="20" WidthRequest="20" HorizontalOptions="Center" VerticalOptions="Center">
                     <Path.Style>
                         <Style TargetType="Path">
-                            <Setter Property="Fill" Value="#777"/>
+                            <Setter Property="Fill" Value="#BBB"/>
                             <Style.Triggers>
                                 <DataTrigger TargetType="Path" Binding="{Binding IsShuffle}" Value="True">
-                                    <Setter Property="Fill" Value="{StaticResource AccentColor}"/>
+                                    <Setter Property="Fill" Value="{StaticResource CosmicPink}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -117,13 +123,16 @@
                 <Path Data="{StaticResource IconPrevious}" Fill="White" Aspect="Uniform" HeightRequest="30" WidthRequest="30" HorizontalOptions="Center" VerticalOptions="Center"/>
             </Grid>
 
-            <Border Grid.Column="2" HeightRequest="70" WidthRequest="70" StrokeShape="RoundRectangle 35" StrokeThickness="0" BackgroundColor="White">
+            <Border Grid.Column="2" HeightRequest="75" WidthRequest="75" StrokeShape="RoundRectangle 40" StrokeThickness="0" BackgroundColor="{StaticResource CosmicPink}">
+                <Border.Shadow>
+                    <Shadow Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="20" Opacity="0.6"/>
+                </Border.Shadow>
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding PlayPauseCommand}" />
                 </Border.GestureRecognizers>
                 <Grid HorizontalOptions="Center" VerticalOptions="Center">
-                    <Path Data="{StaticResource IconPlay}" Fill="#120520" Aspect="Uniform" HeightRequest="26" WidthRequest="26" Margin="4,0,0,0" IsVisible="{Binding IsPlaying, Converter={StaticResource InvertedBoolConverter}}"/>
-                    <Path Data="{StaticResource IconPause}" Fill="#120520" Aspect="Uniform" HeightRequest="26" WidthRequest="26" IsVisible="{Binding IsPlaying}"/>
+                    <Path Data="{StaticResource IconPlay}" Fill="White" Aspect="Uniform" HeightRequest="30" WidthRequest="30" Margin="4,0,0,0" IsVisible="{Binding IsPlaying, Converter={StaticResource InvertedBoolConverter}}"/>
+                    <Path Data="{StaticResource IconPause}" Fill="White" Aspect="Uniform" HeightRequest="30" WidthRequest="30" IsVisible="{Binding IsPlaying}"/>
                 </Grid>
             </Border>
 
@@ -138,26 +147,51 @@
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ToggleRepeatCommand}" />
                 </Grid.GestureRecognizers>
+
                 <Grid HorizontalOptions="Center" VerticalOptions="Center">
-                    <Path Data="{StaticResource IconRepeat}" Aspect="Uniform" HeightRequest="20" WidthRequest="20">
+                    <Path Aspect="Uniform" HeightRequest="20" WidthRequest="20">
                         <Path.Style>
                             <Style TargetType="Path">
-                                <Setter Property="Fill" Value="#777"/>
+                                <Setter Property="Data" Value="{StaticResource IconRepeat}"/>
+                                <Setter Property="Fill" Value="#BBB"/>
                                 <Style.Triggers>
-                                    <DataTrigger TargetType="Path" Binding="{Binding IsRepeat}" Value="True">
-                                        <Setter Property="Fill" Value="{StaticResource AccentColor}"/>
+                                    <DataTrigger TargetType="Path" Binding="{Binding RepeatMode}" Value="1">
+                                        <Setter Property="Data" Value="{StaticResource IconRepeatOne}"/>
+                                        <Setter Property="Fill" Value="{StaticResource CosmicPink}"/>
+                                    </DataTrigger>
+
+                                    <DataTrigger TargetType="Path" Binding="{Binding RepeatMode}" Value="2">
+                                        <Setter Property="Data" Value="{StaticResource IconRepeat}"/>
+                                        <Setter Property="Fill" Value="{StaticResource CosmicPink}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Path.Style>
                     </Path>
+
+                    <BoxView HeightRequest="4" WidthRequest="4" CornerRadius="2" 
+                             Color="{StaticResource CosmicPink}" 
+                             HorizontalOptions="Center" VerticalOptions="End" 
+                             Margin="0,24,0,0">
+                        <BoxView.Triggers>
+                            <DataTrigger TargetType="BoxView" Binding="{Binding RepeatMode}" Value="2">
+                                <Setter Property="IsVisible" Value="True"/>
+                            </DataTrigger>
+                            <DataTrigger TargetType="BoxView" Binding="{Binding RepeatMode}" Value="0">
+                                <Setter Property="IsVisible" Value="False"/>
+                            </DataTrigger>
+                            <DataTrigger TargetType="BoxView" Binding="{Binding RepeatMode}" Value="1">
+                                <Setter Property="IsVisible" Value="False"/>
+                            </DataTrigger>
+                        </BoxView.Triggers>
+                    </BoxView>
                 </Grid>
             </Grid>
         </Grid>
 
         <Grid Grid.Row="5" ColumnDefinitions="Auto, *, Auto" ColumnSpacing="15" VerticalOptions="Center">
             <Path Grid.Column="0" Data="{StaticResource IconVolumeLow}" Fill="#AAA" Aspect="Uniform" HeightRequest="20" WidthRequest="20"/>
-            <Slider Grid.Column="1" MinimumTrackColor="White" MaximumTrackColor="#555" ThumbColor="White" Minimum="0" Maximum="1" Value="{Binding Volume}" />
+            <Slider Grid.Column="1" MinimumTrackColor="White" MaximumTrackColor="#33FFFFFF" ThumbColor="White" Minimum="0" Maximum="1" Value="{Binding Volume}" />
             <Path Grid.Column="2" Data="{StaticResource IconVolumeHigh}" Fill="#AAA" Aspect="Uniform" HeightRequest="20" WidthRequest="20"/>
         </Grid>
 
