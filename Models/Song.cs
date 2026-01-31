@@ -35,5 +35,6 @@ namespace CosmicMusic.Models
         // --- Thuộc tính tính toán ---
         [Ignore]
         public bool IsDownloaded => !string.IsNullOrEmpty(LocalPath) && File.Exists(LocalPath);
+        public int LikeCount { get; set; } = 0;
     }
 }
