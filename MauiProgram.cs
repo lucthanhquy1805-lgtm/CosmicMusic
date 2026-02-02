@@ -4,6 +4,7 @@ using CosmicMusic.Services;
 using CosmicMusic.ViewModels;
 using CosmicMusic.Views;
 
+
 namespace CosmicMusic;
 
 public static class MauiProgram

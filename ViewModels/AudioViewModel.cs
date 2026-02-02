@@ -10,10 +10,8 @@ using System.Linq;
 
 namespace CosmicMusic.ViewModels
 {
-    // Class tin nhắn để báo Library cập nhật lại (Giữ nguyên)
     public class RefreshLibraryMessage { }
 
-    // 👇 THÊM MỚI: Class tin nhắn báo bài hát vừa được phát (Để Home cập nhật Recently Played)
     public class SongPlayedMessage
     {
         public Song PlayedSong { get; set; }
@@ -23,21 +21,28 @@ namespace CosmicMusic.ViewModels
     public partial class AudioViewModel : ObservableObject
     {
         private readonly FirestoreService _firestoreService;
+
+        // 👇 1. THÊM KHAI BÁO SERVICE TÌM LYRIC
+        private readonly LyricsService _lyricsService;
+
         private MediaElement _mediaElement;
         private bool _isDraggingSlider = false;
 
-        // Danh sách phát toàn cục
         public ObservableCollection<Song> Playlist { get; set; } = new();
 
         public AudioViewModel(FirestoreService firestoreService)
         {
             _firestoreService = firestoreService;
-            FavoriteColor = "#A569F7"; // Màu mặc định (Tím)
+
+            // 👇 2. KHỞI TẠO SERVICE
+            _lyricsService = new LyricsService();
+
+            FavoriteColor = "#A569F7";
             IsFavorite = false;
         }
 
         // ==========================================================
-        // 1. CÁC THUỘC TÍNH (OBSERVABLE PROPERTIES)
+        // CÁC THUỘC TÍNH (GIỮ NGUYÊN)
         // ==========================================================
 
         [ObservableProperty] private Song _currentSong;
@@ -47,7 +52,6 @@ namespace CosmicMusic.ViewModels
         [NotifyPropertyChangedFor(nameof(TotalDurationText))]
         private TimeSpan _duration;
 
-        // Biến này để Binding UI (Màu sắc nút Repeat)
         [ObservableProperty] private bool _isRepeat;
 
         public string TotalDurationText => $"{Duration:mm\\:ss}";
@@ -59,23 +63,21 @@ namespace CosmicMusic.ViewModels
 
         [ObservableProperty] private double _volume = 1.0;
 
-        // Thuộc tính màu tim
         [ObservableProperty] private bool _isFavorite;
         [ObservableProperty] private string _favoriteColor;
 
-        // Biến hỗ trợ Slider
+        // Biến điều khiển hiển thị Lyric
+        [ObservableProperty] private bool _isLyricsVisible = false;
+
         public double CurrentPositionSeconds
         {
             get => CurrentPosition.TotalSeconds;
             set { if (_isDraggingSlider) CurrentPosition = TimeSpan.FromSeconds(value); }
         }
 
-        // Shuffle
         [ObservableProperty][NotifyPropertyChangedFor(nameof(ShuffleColor))] private bool _isShuffle;
-        public string ShuffleColor => IsShuffle ? "#D946EF" : "#FFFFFF"; // Đổi sang CosmicPink
+        public string ShuffleColor => IsShuffle ? "#D946EF" : "#FFFFFF";
 
-        // Repeat Logic
-        // 0: Tắt, 1: Một bài, 2: Danh sách
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(RepeatColor))]
         [NotifyPropertyChangedFor(nameof(RepeatIcon))]
@@ -84,14 +86,13 @@ namespace CosmicMusic.ViewModels
         public string RepeatColor => RepeatMode == 0 ? "#FFFFFF" : "#D946EF";
         public string RepeatIcon => RepeatMode == 1 ? "🔂" : "🔁";
 
-        // Hàm này tự chạy khi RepeatMode thay đổi để cập nhật màu icon
         partial void OnRepeatModeChanged(int value)
         {
             IsRepeat = value > 0;
         }
 
         // ==========================================================
-        // 2. KẾT NỐI MEDIA ELEMENT
+        // MEDIA ELEMENT (GIỮ NGUYÊN)
         // ==========================================================
         public void SetMediaElement(MediaElement newMediaElement)
         {
@@ -133,9 +134,6 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        // ==========================================================
-        // 3. SỰ KIỆN MEDIA
-        // ==========================================================
         private void OnMediaOpened(object sender, EventArgs e)
         {
             if (_mediaElement != null) Duration = _mediaElement.Duration;
@@ -144,7 +142,6 @@ namespace CosmicMusic.ViewModels
         private void OnPositionChanged(object sender, MediaPositionChangedEventArgs e)
         {
             if (_isDraggingSlider) return;
-
             CurrentPosition = e.Position;
             OnPropertyChanged(nameof(CurrentPositionSeconds));
 
@@ -160,7 +157,7 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 4. HÀM PHÁT NHẠC (ĐÃ SỬA: GỬI TIN NHẮN)
+        // 4. HÀM PHÁT NHẠC (ĐÃ BỔ SUNG LOGIC TÌM LYRIC)
         // ==========================================================
         public void PlaySong(Song song, ObservableCollection<Song>? contextList = null)
         {
@@ -197,13 +194,39 @@ namespace CosmicMusic.ViewModels
                     _mediaElement.Source = MediaSource.FromUri(song.AudioUrl);
                 }
                 _mediaElement.Play();
-
-                // 👇 QUAN TRỌNG: Gửi tin nhắn báo cho HomeViewModel biết bài này vừa được phát
-                // Để HomeViewModel thêm vào danh sách "Recently Played"
                 WeakReferenceMessenger.Default.Send(new SongPlayedMessage(song));
             }
 
-            // --- CHECK TIM TRÊN SERVER ---
+            // 👇👇👇 3. BỔ SUNG: LOGIC TỰ ĐỘNG TÌM LỜI BÀI HÁT 👇👇👇
+            if (string.IsNullOrEmpty(CurrentSong.Lyrics))
+            {
+                // Báo đang tìm
+                CurrentSong.Lyrics = "Đang tìm lời bài hát... ⏳";
+                OnPropertyChanged(nameof(CurrentSong));
+
+                // Chạy ngầm đi tìm
+                Task.Run(async () =>
+                {
+                    string foundLyrics = await _lyricsService.GetLyricsAsync(CurrentSong.Title, CurrentSong.Artist);
+                  
+                    
+                    if (!string.IsNullOrEmpty(foundLyrics))
+                    {
+                        CurrentSong.Lyrics = foundLyrics;
+                        _ = Task.Run(() => _firestoreService.UpdateSongLyricsAsync(CurrentSong));
+                        // Nếu muốn lưu lại vào DB thì gọi FirestoreService ở đây
+                    }
+                    else
+                    {
+                        CurrentSong.Lyrics = "Chưa tìm thấy lời bài hát 😔";
+                    }
+                    // Cập nhật giao diện
+                    OnPropertyChanged(nameof(CurrentSong));
+                });
+            }
+            // 👆👆👆 HẾT PHẦN BỔ SUNG 👆👆👆
+
+            // --- CHECK TIM TRÊN SERVER (GIỮ NGUYÊN) ---
             Task.Run(async () =>
             {
                 try
@@ -229,9 +252,38 @@ namespace CosmicMusic.ViewModels
                 catch { }
             });
         }
+        // ... (Các code cũ) ...
 
+        // 👇👇👇 1. BIẾN ĐIỀU KHIỂN CHẾ ĐỘ SỬA LYRIC 👇👇👇
+        [ObservableProperty]
+        private bool _isEditingLyrics = false; // Mặc định là False (Chế độ xem)
+
+        // 👇👇👇 2. LỆNH BẬT/TẮT CHẾ ĐỘ SỬA 👇👇👇
+        [RelayCommand]
+        public void ToggleEditLyrics()
+        {
+            IsEditingLyrics = !IsEditingLyrics;
+        }
+
+        // 👇👇👇 3. LỆNH LƯU LYRIC SAU KHI SỬA 👇👇👇
+        [RelayCommand]
+        public async Task SaveLyrics()
+        {
+            if (CurrentSong == null) return;
+
+            // Tắt chế độ sửa, quay về chế độ xem
+            IsEditingLyrics = false;
+
+            // Gửi dữ liệu mới lên Firebase
+            await _firestoreService.UpdateSongLyricsAsync(CurrentSong);
+
+            // Thông báo nhẹ cho người dùng vui
+            await Shell.Current.DisplayAlert("Thành công", "Đã cập nhật lời bài hát! 💖", "OK");
+
+            OnPropertyChanged(nameof(CurrentSong));
+        }
         // ==========================================================
-        // 5. CÁC NÚT ĐIỀU KHIỂN (GIỮ NGUYÊN)
+        // CÁC NÚT ĐIỀU KHIỂN (GIỮ NGUYÊN)
         // ==========================================================
 
         [RelayCommand]
@@ -322,6 +374,7 @@ namespace CosmicMusic.ViewModels
             else PlaySong(Playlist[Playlist.Count - 1]);
         }
 
+        // Logic ToggleFavorite cũ của bạn (Giữ nguyên)
         [RelayCommand]
         public async Task ToggleFavorite()
         {
@@ -387,6 +440,13 @@ namespace CosmicMusic.ViewModels
             Playlist.Clear();
             CurrentPosition = TimeSpan.Zero;
             Duration = TimeSpan.Zero;
+        }
+
+        // Lệnh Bật/Tắt Lyric
+        [RelayCommand]
+        public void ToggleLyrics()
+        {
+            IsLyricsVisible = !IsLyricsVisible;
         }
     }
 }

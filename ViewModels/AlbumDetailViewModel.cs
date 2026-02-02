@@ -127,52 +127,43 @@ namespace CosmicMusic.ViewModels
         }
 
         // LOGIC 2: Filter Album/Artist Songs
+        // LOGIC 2: Filter Album/Artist Songs (Đã chỉnh sửa để đảm bảo tính tổng đúng)
         private async Task LoadSongsFromGlobal()
         {
             IsBusy = true;
             try
             {
-                // Get all songs
+                // 1. Lấy tất cả bài hát từ Database (bao gồm cả số Like mới nhất)
                 var allSongs = await _musicApiService.GetSongsAsync();
 
                 IEnumerable<Song> filteredSongs;
 
+                // 2. Lọc theo Album hoặc Nghệ sĩ
                 if (_currentType == "Artist")
                 {
-                    // Filter by Artist name
                     filteredSongs = allSongs.Where(s =>
                         s.Artist != null &&
                         s.Artist.Trim().Equals(MainTitle.Trim(), StringComparison.OrdinalIgnoreCase));
                 }
                 else
                 {
-                    // Filter by Album name
                     filteredSongs = allSongs.Where(s =>
                         s.Album != null &&
                         s.Album.Trim().Equals(MainTitle.Trim(), StringComparison.OrdinalIgnoreCase));
                 }
 
-                // 👇 1. KHỞI TẠO BIẾN ĐẾM TỔNG LIKE
+                // 3. Xóa danh sách cũ và thêm mới (để tránh trùng lặp)
+                Songs.Clear();
                 int totalLikes = 0;
 
                 foreach (var s in filteredSongs)
                 {
                     Songs.Add(s);
-                    // 👇 2. CỘNG DỒN SỐ LIKE CỦA TỪNG BÀI
-                    totalLikes += s.LikeCount;
+                    totalLikes += s.LikeCount; // Cộng dồn số like
                 }
 
-                // 👇 3. CẬP NHẬT SUBTITLE (HIỂN THỊ 2 DÒNG)
-                if (_currentType == "Album")
-                {
-                    // Dòng 1: Thông tin Album
-                    // Dòng 2: ❤️ Tổng số like
-                    SubTitle = $"Album • {_receivedAlbum.Artist} • {Songs.Count} bài\n❤️ {totalLikes} lượt thích";
-                }
-                else if (_currentType == "Artist")
-                {
-                    SubTitle = $"Nghệ sĩ • {Songs.Count} bài hát\n❤️ {totalLikes} lượt thích";
-                }
+                // 4. Cập nhật dòng SubTitle hiển thị tổng like
+                UpdateTotalLikesSubtitle(); // Gọi hàm phụ trợ để cập nhật text chuẩn
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
             finally { IsBusy = false; }

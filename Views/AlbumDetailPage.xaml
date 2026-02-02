@@ -14,6 +14,8 @@
 
     <ContentPage.Resources>
         <ResourceDictionary>
+            <Color x:Key="CosmicPink">#D946EF</Color>
+
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
             <x:String x:Key="IconPrevious">M6,6H8V18H6M9.5,12L18,18V6</x:String>
             <x:String x:Key="IconNext">M16,18H18V6H16M6,18L14.5,12L6,6</x:String>

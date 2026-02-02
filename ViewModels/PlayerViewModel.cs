@@ -10,19 +10,17 @@ namespace CosmicMusic.ViewModels
         // 1. Khai báo AudioViewModel là "bộ não" chính
         private readonly AudioViewModel _audioViewModel;
 
-        // 2. CONSTRUCTOR (Quan trọng: Đăng ký nhận thông báo thay đổi)
+        // 2. CONSTRUCTOR
         public PlayerViewModel(AudioViewModel audioViewModel)
         {
             _audioViewModel = audioViewModel;
 
-            // Kỹ thuật "Event Forwarding":
-            // Khi AudioViewModel thay đổi (ví dụ: đổi bài, hết giờ, pause),
-            // PlayerViewModel cũng báo cho giao diện cập nhật theo.
+            // Kỹ thuật "Event Forwarding" (Cầu nối sự kiện):
             _audioViewModel.PropertyChanged += (s, e) =>
             {
                 OnPropertyChanged(e.PropertyName);
 
-                // Cập nhật các thuộc tính phụ thuộc
+                // Cập nhật các thuộc tính cơ bản
                 if (e.PropertyName == nameof(AudioViewModel.CurrentSong)) OnPropertyChanged(nameof(CurrentSong));
                 if (e.PropertyName == nameof(AudioViewModel.IsPlaying)) OnPropertyChanged(nameof(IsPlaying));
                 if (e.PropertyName == nameof(AudioViewModel.Duration)) OnPropertyChanged(nameof(Duration));
@@ -30,21 +28,26 @@ namespace CosmicMusic.ViewModels
                 if (e.PropertyName == nameof(AudioViewModel.CurrentPositionSeconds)) OnPropertyChanged(nameof(CurrentPositionSeconds));
                 if (e.PropertyName == nameof(AudioViewModel.IsShuffle)) OnPropertyChanged(nameof(IsShuffle));
                 if (e.PropertyName == nameof(AudioViewModel.RepeatMode)) OnPropertyChanged(nameof(RepeatMode));
+
+                // 👇 THÊM: Cập nhật thông báo cho Lyric và Tim
+                if (e.PropertyName == nameof(AudioViewModel.IsLyricsVisible)) OnPropertyChanged(nameof(IsLyricsVisible));
+                if (e.PropertyName == nameof(AudioViewModel.IsFavorite)) OnPropertyChanged(nameof(IsFavorite));
             };
         }
 
-        // 3. CÁC THUỘC TÍNH (Trỏ thẳng sang AudioViewModel)
-        // Giao diện sẽ Binding vào các tên này
+        // 3. CÁC THUỘC TÍNH (CẦU NỐI - CHỈ TRỎ SANG AUDIOVIEWMODEL)
 
         public Song CurrentSong => _audioViewModel.CurrentSong;
-
         public bool IsPlaying => _audioViewModel.IsPlaying;
-
         public TimeSpan Duration => _audioViewModel.Duration;
-
         public TimeSpan CurrentPosition => _audioViewModel.CurrentPosition;
 
-        // Thuộc tính quan trọng cho Slider
+        // 👇 THÊM: Cầu nối hiển thị Lyric
+        public bool IsLyricsVisible => _audioViewModel.IsLyricsVisible;
+
+        // 👇 THÊM: Cầu nối hiển thị Tim đỏ/xám
+        public bool IsFavorite => _audioViewModel.IsFavorite;
+
         public double CurrentPositionSeconds
         {
             get => _audioViewModel.CurrentPositionSeconds;
@@ -58,27 +61,19 @@ namespace CosmicMusic.ViewModels
         }
 
         public bool IsShuffle => _audioViewModel.IsShuffle;
-
         public int RepeatMode => _audioViewModel.RepeatMode;
 
-        // 4. NHẬN DỮ LIỆU TỪ TRANG KHÁC (Search/Home) GỬI SANG
+        // 4. NHẬN DỮ LIỆU TỪ TRANG KHÁC
         public void ApplyQueryAttributes(IDictionary<string, object> query)
         {
-            // Kiểm tra xem có dữ liệu bài hát được gửi sang không
             if (query.ContainsKey("SongData"))
             {
                 var songData = query["SongData"] as LibraryItem;
-                if (songData != null)
-                {
-                    // Chuyển đổi LibraryItem sang Song (nếu cần thiết hoặc dùng trực tiếp để tìm trong AudioViewModel)
-                    // Ở đây giả sử AudioViewModel đã xử lý việc phát nhạc rồi, 
-                    // hàm này chủ yếu để đảm bảo UI đồng bộ nếu cần logic riêng.
-                    // Nhưng với logic hiện tại, AudioViewModel thường đã được kích hoạt từ trang trước.
-                }
+                // Logic xử lý nếu cần
             }
         }
 
-        // 5. CÁC LỆNH ĐIỀU KHIỂN (Gọi sang AudioViewModel thực hiện)
+        // 5. CÁC LỆNH ĐIỀU KHIỂN (GỌI SANG AUDIOVIEWMODEL THỰC HIỆN)
 
         [RelayCommand]
         public void PlayPause() => _audioViewModel.PlayPauseCommand.Execute(null);
@@ -95,7 +90,18 @@ namespace CosmicMusic.ViewModels
         [RelayCommand]
         public void ToggleRepeat() => _audioViewModel.ToggleRepeatCommand.Execute(null);
 
-        // Các lệnh xử lý kéo thanh Slider
+        // 👇 THÊM: Lệnh bật Lyric (Gọi sang nhạc trưởng)
+        [RelayCommand]
+        public void ToggleLyrics() => _audioViewModel.ToggleLyricsCommand.Execute(null);
+
+        // 👇 THÊM: Lệnh thả tim (Gọi sang nhạc trưởng)
+        [RelayCommand]
+        public void ToggleFavorite()
+        {
+            if (_audioViewModel.ToggleFavoriteCommand != null)
+                _audioViewModel.ToggleFavoriteCommand.Execute(null);
+        }
+
         [RelayCommand]
         public void DragStarted() => _audioViewModel.DragStartedCommand.Execute(null);
 

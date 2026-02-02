@@ -36,5 +36,6 @@ namespace CosmicMusic.Models
         [Ignore]
         public bool IsDownloaded => !string.IsNullOrEmpty(LocalPath) && File.Exists(LocalPath);
         public int LikeCount { get; set; } = 0;
+        public string Lyrics { get; set; } = "";
     }
 }
