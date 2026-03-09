@@ -10,7 +10,7 @@ namespace CosmicMusic.ViewModels
     public partial class SearchViewModel : ObservableObject
     {
         private readonly FirestoreService _firestoreService;
-        private readonly MusicApiService _musicService;
+        
         private readonly AudioViewModel _audioViewModel;
         public AudioViewModel AudioPlayer => _audioViewModel;
 
@@ -29,9 +29,8 @@ namespace CosmicMusic.ViewModels
 
         private CancellationTokenSource _searchCancellationTokenSource;
 
-        public SearchViewModel(MusicApiService musicService, AudioViewModel audioViewModel, FirestoreService firestoreService)
+        public SearchViewModel(AudioViewModel audioViewModel, FirestoreService firestoreService)
         {
-            _musicService = musicService;
             _audioViewModel = audioViewModel;
             _firestoreService = firestoreService;
 

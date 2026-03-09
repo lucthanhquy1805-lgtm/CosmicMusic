@@ -296,78 +296,96 @@ namespace CosmicMusic.Services
         // 4. CÁC HÀM TÌM KIẾM (SEARCH)
         // ==========================================================
 
+        // ==========================================================
+        // HÀM TÌM KIẾM THÔNG MINH - HỖ TRỢ TIẾNG VIỆT KHÔNG DẤU
+        // ==========================================================
         public async Task<List<Song>> SearchSongsByKeywordsAsync(string keyword)
         {
-            if (string.IsNullOrEmpty(keyword)) return new List<Song>();
+            var resultList = new List<Song>();
+            if (string.IsNullOrWhiteSpace(keyword)) return resultList;
 
-            string cleanKeyword = keyword.ToLower().Trim();
-            var query = new
-            {
-                structuredQuery = new
-                {
-                    from = new[] { new { collectionId = "songs" } },
-                    where = new
-                    {
-                        fieldFilter = new
-                        {
-                            field = new { fieldPath = "searchKeywords" },
-                            op = "ARRAY_CONTAINS",
-                            value = new { stringValue = cleanKeyword }
-                        }
-                    },
-                    limit = 20
-                }
-            };
+            // Xử lý từ khóa: Đưa về chữ thường và cắt bỏ khoảng trắng thừa
+            string searchWord = RemoveDiacritics(keyword.Trim().ToLower());
 
-            string runQueryUrl = $"{_baseUrl}:runQuery";
-            var songs = new List<Song>();
+            string url = $"{_baseUrl}/songs";
 
             try
             {
-                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(runQueryUrl, content);
-
+                var response = await _httpClient.GetAsync(url);
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(json);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
 
-                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    if (doc.RootElement.TryGetProperty("documents", out var docs))
                     {
-                        foreach (var item in doc.RootElement.EnumerateArray())
+                        foreach (var d in docs.EnumerateArray())
                         {
-                            if (item.TryGetProperty("document", out var d))
+                            if (d.TryGetProperty("fields", out var fields))
                             {
-                                if (d.TryGetProperty("fields", out var fields))
+                                // Lấy Tên và Nghệ sĩ để so sánh
+                                string title = "";
+                                string artist = "";
+
+                                if (fields.TryGetProperty("title", out var t)) title = t.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("artist", out var a)) artist = a.GetProperty("stringValue").GetString();
+
+                                // Chuyển đổi tên và nghệ sĩ về dạng không dấu, chữ thường
+                                string normalizedTitle = RemoveDiacritics(title.ToLower());
+                                string normalizedArtist = RemoveDiacritics(artist.ToLower());
+
+                                // TÌM KIẾM THEO KIỂU CHỨA TỪ KHÓA (Ví dụ gõ "mua", ra "mùa xuân")
+                                if (normalizedTitle.Contains(searchWord) || normalizedArtist.Contains(searchWord))
                                 {
                                     var s = new Song();
-                                    s.Id = d.GetProperty("name").GetString().Split('/').Last(); // Lấy ID
+                                    s.Id = d.GetProperty("name").GetString().Split('/').Last();
+                                    s.Title = title;
+                                    s.Artist = artist;
 
-                                    if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
-                                    if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
-                                    if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
-                                    if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
-                                    if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
-                                    if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
+                                    if (fields.TryGetProperty("audioUrl", out var au)) s.AudioUrl = au.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("coverImage", out var cImg)) s.CoverImage = cImg.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("album", out var al)) s.Album = al.GetProperty("stringValue").GetString();
 
-                                    if (fields.TryGetProperty("lyrics", out var ly) && ly.TryGetProperty("stringValue", out var lystr))
-                                        s.Lyrics = lystr.GetString();
+                                    if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var durVal))
+                                        s.Duration = durVal.ValueKind == JsonValueKind.String ? double.Parse(durVal.GetString()) : durVal.GetDouble();
 
-                                    if (!string.IsNullOrEmpty(s.AudioUrl) && !string.IsNullOrEmpty(s.Title))
-                                    {
-                                        songs.Add(s);
-                                    }
+                                    if (fields.TryGetProperty("isPremium", out var prem) && prem.TryGetProperty("booleanValue", out var pVal))
+                                        s.IsPremium = pVal.GetBoolean();
+
+                                    resultList.Add(s);
                                 }
                             }
                         }
                     }
                 }
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi tìm kiếm Firestore: {ex.Message}"); }
-            return songs;
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi hàm Tìm kiếm: {ex.Message}");
+            }
+
+            return resultList;
         }
 
-    
+        // Hàm phụ trợ: Loại bỏ dấu Tiếng Việt (ể ê ề -> e)
+        private string RemoveDiacritics(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return text;
+            var normalizedString = text.Normalize(System.Text.NormalizationForm.FormD);
+            var stringBuilder = new System.Text.StringBuilder();
+
+            foreach (var c in normalizedString)
+            {
+                var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+                if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    stringBuilder.Append(c);
+                }
+            }
+            // Loại bỏ chữ Đ đặc biệt của tiếng Việt
+            return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC).Replace("đ", "d").Replace("Đ", "D");
+        }
+
 
         // ==========================================================
         // 5. CÁC HÀM PLAYLIST (ĐÃ CHUYỂN RA ROOT COLLECTION)
