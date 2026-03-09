@@ -64,206 +64,82 @@ namespace CosmicMusic.Services
         }
 
         // ==========================================================
-        // 2. CÁC HÀM LIÊN QUAN ĐẾN PLAYLIST
+        // 2. CÁC HÀM LẤY DỮ LIỆU NỀN TẢNG (10 COLLECTIONS) - MỚI
         // ==========================================================
 
-        public async Task CreatePlaylistAndAddSong(string uid, string playlistName, Song song)
+        public async Task<List<Artist>> GetAllArtistsAsync()
         {
-            string safeName = playlistName.Replace(" ", "_");
-            string playlistId = $"{safeName}_{DateTime.Now.Ticks}";
-            string playlistUrl = $"{_baseUrl}/users/{uid}/playlists/{playlistId}";
-
-            try
-            {
-                var newPlaylist = new
-                {
-                    fields = new
-                    {
-                        name = new { stringValue = playlistName },
-                        ownerId = new { stringValue = uid },
-                        coverImage = new { stringValue = song.CoverImage },
-                        isSystem = new { booleanValue = false },
-                        songCount = new { integerValue = 0 }
-                    }
-                };
-                await _httpClient.PatchAsync(playlistUrl, new StringContent(JsonSerializer.Serialize(newPlaylist), Encoding.UTF8, "application/json"));
-                await AddSongToExistingPlaylist(playlistId, song);
-            }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Lỗi tạo playlist: " + ex.Message); }
-        }
-
-        public async Task AddSongToExistingPlaylist(string playlistId, Song song)
-        {
-            string uid = Preferences.Get("UserId", "");
-            if (string.IsNullOrEmpty(uid)) return;
-
-            string playlistUrl = $"{_baseUrl}/users/{uid}/playlists/{playlistId}";
-
-            try
-            {
-                // 1. Thêm bài hát vào Sub-collection "songs"
-                string safeTitle = song.Title.Replace(" ", "_");
-                string safeArtist = song.Artist.Replace(" ", "_");
-                string songDocId = WebUtility.UrlEncode($"{safeTitle}_{safeArtist}");
-
-                string songUrl = $"{playlistUrl}/songs/{songDocId}";
-
-                var songData = new
-                {
-                    fields = new
-                    {
-                        title = new { stringValue = song.Title },
-                        artist = new { stringValue = song.Artist },
-                        audioUrl = new { stringValue = song.AudioUrl },
-                        coverImage = new { stringValue = song.CoverImage },
-                        album = new { stringValue = song.Album ?? "Unknown" },
-                        duration = new { integerValue = (int)song.Duration }
-                    }
-                };
-
-                await _httpClient.PatchAsync(songUrl, new StringContent(JsonSerializer.Serialize(songData), Encoding.UTF8, "application/json"));
-
-                // 2. Cập nhật tăng bộ đếm SongCount (+1) cho Playlist cha
-                // Lấy thông tin playlist hiện tại
-                var response = await _httpClient.GetAsync(playlistUrl);
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(json);
-                    int currentCount = 0;
-
-                    if (doc.RootElement.TryGetProperty("fields", out var fields) &&
-                        fields.TryGetProperty("songCount", out var sc) &&
-                        sc.TryGetProperty("integerValue", out var val))
-                    {
-                        if (val.ValueKind == JsonValueKind.String)
-                            int.TryParse(val.GetString(), out currentCount);
-                        else
-                            currentCount = val.GetInt32();
-                    }
-
-                    int newCount = currentCount + 1;
-
-                    // Gửi lệnh cập nhật lại số lượng
-                    var updatePayload = new
-                    {
-                        fields = new
-                        {
-                            songCount = new { integerValue = newCount }
-                        }
-                    };
-
-                    string updateUrl = $"{playlistUrl}?updateMask.fieldPaths=songCount";
-                    await _httpClient.PatchAsync(updateUrl, new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json"));
-                }
-            }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi thêm bài: {ex.Message}"); }
-        }
-
-        // ==========================================================
-        // 3. KIỂM TRA TIM (IS FAVORITE)
-        // ==========================================================
-        public async Task<bool> IsSongInUserLibrary(string userId, Song song)
-        {
-            // 🛡️ BƯỚC 1: KIỂM TRA DỮ LIỆU ĐẦU VÀO (QUAN TRỌNG)
-            // Nếu object song bị null -> Thoát ngay
-            if (song == null) return false;
-
-            // Nếu Tên hoặc Ca sĩ bị null (Lỗi gây crash App lúc nãy) -> Thoát ngay
-            if (string.IsNullOrEmpty(song.Title) || string.IsNullOrEmpty(song.Artist))
-            {
-                // In ra Log để bạn biết bài nào đang bị lỗi dữ liệu
-                System.Diagnostics.Debug.WriteLine($"⚠️ Cảnh báo: Bài hát '{song.Title}' bị thiếu thông tin Ca sĩ hoặc Tên. Không thể kiểm tra Tim.");
-                return false;
-            }
-
-            try
-            {
-                var playlists = await GetUserPlaylists(userId);
-                if (playlists == null || playlists.Count == 0) return false;
-
-                // 🛡️ BƯỚC 2: XỬ LÝ AN TOÀN
-                // Bây giờ Artist chắc chắn không null, lệnh Replace sẽ chạy ngon lành
-                string safeTitle = song.Title.Replace(" ", "_");
-                string safeArtist = song.Artist.Replace(" ", "_");
-                string songDocId = WebUtility.UrlEncode($"{safeTitle}_{safeArtist}");
-
-                foreach (var playlist in playlists)
-                {
-                    string checkUrl = $"{_baseUrl}/users/{userId}/playlists/{playlist.Id}/songs/{songDocId}";
-                    var response = await _httpClient.GetAsync(checkUrl);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi kiểm tra tim: {ex.Message}");
-                return false;
-            }
-        }
-
-        // ==========================================================
-        // 4. LẤY DANH SÁCH PLAYLIST & BÀI HÁT
-        // ==========================================================
-
-        public async Task<List<Playlist>> GetUserPlaylists(string uid)
-        {
-            string url = $"{_baseUrl}/users/{uid}/playlists";
-            var playlists = new List<Playlist>();
-
+            var artists = new List<Artist>();
+            string url = $"{_baseUrl}/artists";
             try
             {
                 var response = await _httpClient.GetAsync(url);
                 if (response.IsSuccessStatusCode)
                 {
-                    var jsonString = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(jsonString);
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
 
                     if (doc.RootElement.TryGetProperty("documents", out var docs))
                     {
                         foreach (var d in docs.EnumerateArray())
                         {
-                            var p = new Playlist();
-                            p.Id = d.GetProperty("name").GetString().Split('/').Last();
-
-                            var fields = d.GetProperty("fields");
-                            if (fields.TryGetProperty("name", out var n)) p.Name = n.GetProperty("stringValue").GetString();
-                            if (fields.TryGetProperty("coverImage", out var c)) p.CoverImage = c.GetProperty("stringValue").GetString();
-                            if (fields.TryGetProperty("ownerId", out var o)) p.OwnerId = o.GetProperty("stringValue").GetString();
-
-                            if (fields.TryGetProperty("songCount", out var sc))
+                            // 👇 BỌC TRY-CATCH CHO TỪNG NGHỆ SĨ. Lỗi 1 người không ảnh hưởng người khác
+                            try
                             {
-                                if (sc.TryGetProperty("integerValue", out var val))
+                                var a = new Artist();
+                                a.Id = d.GetProperty("name").GetString().Split('/').Last();
+
+                                if (d.TryGetProperty("fields", out var fields))
                                 {
-                                    if (val.ValueKind == JsonValueKind.String)
-                                        p.SongCount = int.Parse(val.GetString());
-                                    else
-                                        p.SongCount = val.GetInt32();
+                                    // 1. Lấy Tên
+                                    if (fields.TryGetProperty("name", out var n)) a.Name = n.GetProperty("stringValue").GetString();
+                                    else if (fields.TryGetProperty("Name", out var nCap)) a.Name = nCap.GetProperty("stringValue").GetString();
+
+                                    if (string.IsNullOrEmpty(a.Name)) continue;
+
+                                    // 2. Lấy Ảnh 
+                                    if (fields.TryGetProperty("avatar", out var av)) a.Avatar = av.GetProperty("stringValue").GetString();
+                                    else if (fields.TryGetProperty("coverImage", out var cImg)) a.Avatar = cImg.GetProperty("stringValue").GetString();
+
+                                    if (string.IsNullOrEmpty(a.Avatar)) a.Avatar = "cover_chill.jpg";
+
+                                    // 3. Lấy mô tả
+                                    if (fields.TryGetProperty("bio", out var b)) a.Bio = b.GetProperty("stringValue").GetString();
+
+                                    // 4. Lấy lượt theo dõi (CHỐNG TRÀN BỘ NHỚ)
+                                    if (fields.TryGetProperty("followers", out var f) && f.TryGetProperty("integerValue", out var fVal))
+                                    {
+                                        try
+                                        {
+                                            // Thử parse sang số int
+                                            a.Followers = fVal.ValueKind == JsonValueKind.String ? int.Parse(fVal.GetString()) : fVal.GetInt32();
+                                        }
+                                        catch
+                                        {
+                                            // Nếu số quá to (hơn 2 tỷ) gây lỗi, thì gán tạm bằng 0 để không chết App
+                                            a.Followers = 0;
+                                        }
+                                    }
+
+                                    artists.Add(a);
                                 }
                             }
-                            playlists.Add(p);
+                            catch (Exception innerEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Lỗi tải 1 Nghệ sĩ: {innerEx.Message}");
+                            }
                         }
                     }
                 }
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy Playlist: {ex.Message}"); }
-            return playlists;
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy Artists: {ex.Message}"); }
+            return artists;
         }
 
-        // 👇👇👇 HÀM MỚI BẠN CẦN THÊM ĐÂY 👇👇👇
-        public async Task<List<Song>> GetSongsFromPlaylist(string playlistId)
+        public async Task<List<Album>> GetAllAlbumsAsync()
         {
-            string uid = Preferences.Get("UserId", "");
-            if (string.IsNullOrEmpty(uid)) return new List<Song>();
-
-            string url = $"{_baseUrl}/users/{uid}/playlists/{playlistId}/songs";
-            var songs = new List<Song>();
-
+            var albums = new List<Album>();
+            string url = $"{_baseUrl}/albums";
             try
             {
                 var response = await _httpClient.GetAsync(url);
@@ -271,117 +147,70 @@ namespace CosmicMusic.Services
                 {
                     var json = await response.Content.ReadAsStringAsync();
                     using var doc = JsonDocument.Parse(json);
-
-                    // Kiểm tra xem playlist có bài hát nào không (có key "documents" không)
                     if (doc.RootElement.TryGetProperty("documents", out var docs))
                     {
                         foreach (var d in docs.EnumerateArray())
                         {
-                            var s = new Song();
-                            var fields = d.GetProperty("fields");
+                            var a = new Album();
+                            a.Id = d.GetProperty("name").GetString().Split('/').Last();
 
-                            if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
-                            if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
-                            if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
-                            if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
-                            //lyrics
-                            if (fields.TryGetProperty("lyrics", out var ly) && ly.TryGetProperty("stringValue", out var lystr))
+                            if (d.TryGetProperty("fields", out var fields))
                             {
-                                s.Lyrics = lystr.GetString();
+                                if (fields.TryGetProperty("title", out var t)) a.Title = t.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("artistId", out var aid)) a.ArtistId = aid.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("artistName", out var aname)) a.Artist = aname.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("coverImage", out var c)) a.CoverImage = c.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("releaseYear", out var y) && y.TryGetProperty("integerValue", out var yVal))
+                                    a.Year = yVal.ValueKind == JsonValueKind.String ? yVal.GetString() : yVal.GetInt32().ToString();
                             }
-
-                            if (fields.TryGetProperty("duration", out var dur))
-                            {
-                                if (dur.TryGetProperty("integerValue", out var val))
-                                    s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
-                            }
-
-                            songs.Add(s);
+                            albums.Add(a);
                         }
                     }
                 }
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc: {ex.Message}"); }
-            return songs;
-
-
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy Albums: {ex.Message}"); }
+            return albums;
         }
-        // 👇 HÀM XÓA NHẠC KHỎI PLAYLIST VÀ GIẢM BỘ ĐẾM 👇
-        public async Task RemoveSongFromPlaylist(string playlistId, Song song)
+
+        public async Task<List<Genre>> GetAllGenresAsync()
         {
-            string uid = Preferences.Get("UserId", "");
-            if (string.IsNullOrEmpty(uid)) return;
-
-            string playlistUrl = $"{_baseUrl}/users/{uid}/playlists/{playlistId}";
-
+            var genres = new List<Genre>();
+            string url = $"{_baseUrl}/genres";
             try
             {
-                // 1. TÁI TẠO LẠI ID BÀI HÁT (Phải khớp quy tắc lúc thêm)
-                string safeTitle = song.Title.Replace(" ", "_");
-                string safeArtist = song.Artist.Replace(" ", "_");
-                string songDocId = WebUtility.UrlEncode($"{safeTitle}_{safeArtist}");
-
-                string songUrl = $"{playlistUrl}/songs/{songDocId}";
-
-                // 2. GỬI LỆNH XÓA
-                await _httpClient.DeleteAsync(songUrl);
-
-                // 3. CẬP NHẬT GIẢM BỘ ĐẾM (SongCount - 1)
-                var response = await _httpClient.GetAsync(playlistUrl);
+                var response = await _httpClient.GetAsync(url);
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
                     using var doc = JsonDocument.Parse(json);
-                    int currentCount = 0;
-
-                    if (doc.RootElement.TryGetProperty("fields", out var fields) &&
-                        fields.TryGetProperty("songCount", out var sc) &&
-                        sc.TryGetProperty("integerValue", out var val))
+                    if (doc.RootElement.TryGetProperty("documents", out var docs))
                     {
-                        if (val.ValueKind == JsonValueKind.String)
-                            int.TryParse(val.GetString(), out currentCount);
-                        else
-                            currentCount = val.GetInt32();
+                        foreach (var d in docs.EnumerateArray())
+                        {
+                            var g = new Genre();
+                            g.Id = d.GetProperty("name").GetString().Split('/').Last();
+                            if (d.TryGetProperty("fields", out var fields))
+                            {
+                                if (fields.TryGetProperty("name", out var n)) g.Name = n.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("coverImage", out var c)) g.CoverImage = c.GetProperty("stringValue").GetString();
+                            }
+                            genres.Add(g);
+                        }
                     }
-
-                    // Trừ đi 1 (nhưng không được nhỏ hơn 0)
-                    int newCount = Math.Max(0, currentCount - 1);
-
-                    var updatePayload = new
-                    {
-                        fields = new { songCount = new { integerValue = newCount } }
-                    };
-
-                    string updateUrl = $"{playlistUrl}?updateMask.fieldPaths=songCount";
-                    await _httpClient.PatchAsync(updateUrl, new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json"));
                 }
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi xóa bài: {ex.Message}"); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy Genres: {ex.Message}"); }
+            return genres;
         }
-        // 👇 HÀM XÓA PLAYLIST (Mới)
-        public async Task DeletePlaylist(string playlistId)
-        {
-            string uid = Preferences.Get("UserId", "");
-            if (string.IsNullOrEmpty(uid)) return;
 
-            // Đường dẫn tới playlist cần xóa
-            string url = $"{_baseUrl}/users/{uid}/playlists/{playlistId}";
+        // ==========================================================
+        // 3. HÀM LẤY BÀI HÁT (ĐÃ SỬA CHUẨN ĐỂ LẤY ID)
+        // ==========================================================
 
-            try
-            {
-                // Gửi lệnh DELETE
-                await _httpClient.DeleteAsync(url);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi xóa Playlist: {ex.Message}");
-            }
-        }
-        //  HÀM LẤY NHẠC TỪ FIRESTORE (Bản Full + SearchKeywords)
         public async Task<List<Song>> GetAllSongsAsync()
         {
             var songs = new List<Song>();
-            string url = $"{_baseUrl}/songs"; // Trỏ vào collection 'songs' gốc
+            string url = $"{_baseUrl}/songs";
 
             try
             {
@@ -389,7 +218,7 @@ namespace CosmicMusic.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
-                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    using var doc = JsonDocument.Parse(json);
 
                     if (doc.RootElement.TryGetProperty("documents", out var docs))
                     {
@@ -399,26 +228,30 @@ namespace CosmicMusic.Services
                             {
                                 var s = new Song();
 
-                                // 1. Lấy thông tin cơ bản
+                                // 👇 QUAN TRỌNG: Bắt buộc phải lấy Id từ Document Name
+                                s.Id = d.GetProperty("name").GetString().Split('/').Last();
+
+                                // Lấy thông tin cơ bản
                                 if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+
+                                // 👇 CÁC KHÓA NGOẠI (MỚI)
+                                if (fields.TryGetProperty("artistId", out var artId)) s.ArtistId = artId.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("albumId", out var albId)) s.AlbumId = albId.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("genreId", out var genId)) s.GenreId = genId.GetProperty("stringValue").GetString();
+
                                 // Lấy lyrics
                                 if (fields.TryGetProperty("lyrics", out var ly) && ly.TryGetProperty("stringValue", out var lystr))
-                                {
                                     s.Lyrics = lystr.GetString();
-                                }
 
-                                // 2. Lấy thông tin Boolean
-                                if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv))
-                                    s.IsPremium = bv.GetBoolean();
+                                // Lấy thông tin Boolean
+                                if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
+                                if (fields.TryGetProperty("isFeatured", out var f) && f.TryGetProperty("booleanValue", out var fv)) s.IsFeatured = fv.GetBoolean();
 
-                                if (fields.TryGetProperty("isFeatured", out var f) && f.TryGetProperty("booleanValue", out var fv))
-                                    s.IsFeatured = fv.GetBoolean();
-
-                                // 👇 3. LẤY SEARCH KEYWORDS (MẢNG) - MỚI BỔ SUNG
+                                // Lấy SEARCH KEYWORDS
                                 s.SearchKeywords = new List<string>();
                                 if (fields.TryGetProperty("searchKeywords", out var sk) &&
                                     sk.TryGetProperty("arrayValue", out var av) &&
@@ -433,19 +266,19 @@ namespace CosmicMusic.Services
                                     }
                                 }
 
-                                // Chỉ lấy bài hợp lệ
-                                if (!string.IsNullOrEmpty(s.AudioUrl) && !string.IsNullOrEmpty(s.Title))
-                                {
-                                    songs.Add(s);
-                                }
-                                //  4. LẤY LIKE COUNT (INTEGER) 
+                                // Lấy LIKE COUNT
                                 if (fields.TryGetProperty("likeCount", out var lc) && lc.TryGetProperty("integerValue", out var lv))
                                 {
-                                    // Firestore trả về số nguyên có thể là String hoặc Int tùy context
                                     if (lv.ValueKind == JsonValueKind.String)
                                         s.LikeCount = int.Parse(lv.GetString());
                                     else
                                         s.LikeCount = lv.GetInt32();
+                                }
+
+                                // Chỉ lấy bài hợp lệ
+                                if (!string.IsNullOrEmpty(s.AudioUrl) && !string.IsNullOrEmpty(s.Title))
+                                {
+                                    songs.Add(s);
                                 }
                             }
                         }
@@ -456,23 +289,18 @@ namespace CosmicMusic.Services
             {
                 System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc Firestore: {ex.Message}");
             }
-
             return songs;
         }
+
         // ==========================================================
-        // 5. CÁC HÀM TÌM KIẾM (SEARCH) - MỚI BỔ SUNG
+        // 4. CÁC HÀM TÌM KIẾM (SEARCH)
         // ==========================================================
 
         public async Task<List<Song>> SearchSongsByKeywordsAsync(string keyword)
         {
             if (string.IsNullOrEmpty(keyword)) return new List<Song>();
 
-            // 1. Chuẩn hóa từ khóa tìm kiếm
-            // Chuyển về chữ thường + Xóa khoảng trắng thừa
             string cleanKeyword = keyword.ToLower().Trim();
-
-            // 2. Tạo Payload truy vấn Firestore
-            // Logic: Tìm trong collection "songs", điều kiện: mảng "searchKeywords" CHỨA "cleanKeyword"
             var query = new
             {
                 structuredQuery = new
@@ -483,17 +311,15 @@ namespace CosmicMusic.Services
                         fieldFilter = new
                         {
                             field = new { fieldPath = "searchKeywords" },
-                            op = "ARRAY_CONTAINS", // 👈 Quan trọng: Tìm trong mảng
+                            op = "ARRAY_CONTAINS",
                             value = new { stringValue = cleanKeyword }
                         }
                     },
-                    limit = 20 // Giới hạn 20 kết quả để tối ưu tốc độ
+                    limit = 20
                 }
             };
 
-            // 3. Gửi Request POST (Lưu ý: Truy vấn phức tạp phải dùng POST với URL :runQuery)
             string runQueryUrl = $"{_baseUrl}:runQuery";
-
             var songs = new List<Song>();
 
             try
@@ -504,39 +330,29 @@ namespace CosmicMusic.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
-
-                    // Firestore trả về một mảng JSON các documents
-                    // Cấu trúc: [ { "document": { ... } }, { "document": { ... } } ]
-                    // Lưu ý: Nếu không tìm thấy, nó có thể trả về mảng rỗng hoặc format khác một chút
-
                     using var doc = JsonDocument.Parse(json);
 
-                    // Kiểm tra xem kết quả trả về có phải là mảng không
                     if (doc.RootElement.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var item in doc.RootElement.EnumerateArray())
                         {
-                            // Nếu có thuộc tính "document" thì mới là kết quả tìm thấy
                             if (item.TryGetProperty("document", out var d))
                             {
                                 if (d.TryGetProperty("fields", out var fields))
                                 {
                                     var s = new Song();
+                                    s.Id = d.GetProperty("name").GetString().Split('/').Last(); // Lấy ID
 
-                                    // Map dữ liệu (Giống hệt hàm GetAllSongsAsync)
                                     if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
                                     if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
                                     if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
                                     if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
                                     if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
-
                                     if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
 
                                     if (fields.TryGetProperty("lyrics", out var ly) && ly.TryGetProperty("stringValue", out var lystr))
-                                    {
                                         s.Lyrics = lystr.GetString();
-                                    }
-                                    // Chỉ lấy bài hợp lệ
+
                                     if (!string.IsNullOrEmpty(s.AudioUrl) && !string.IsNullOrEmpty(s.Title))
                                     {
                                         songs.Add(s);
@@ -547,38 +363,273 @@ namespace CosmicMusic.Services
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi tìm kiếm Firestore: {ex.Message}");
-            }
-
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi tìm kiếm Firestore: {ex.Message}"); }
             return songs;
         }
-        // 👇 HÀM ĐÃ SỬA: Dùng _httpClient thay vì _db (REST API)
 
-        /// <summary>
-        /// Thêm bài hát vào danh sách Yêu thích (REST API)
-        /// </summary>
+    
+
+        // ==========================================================
+        // 5. CÁC HÀM PLAYLIST (ĐÃ CHUYỂN RA ROOT COLLECTION)
+        // ==========================================================
+
+        public async Task CreatePlaylistAndAddSong(string uid, string playlistName, Song song)
+        {
+            // 1. Tạo ID Playlist (VD: pl_123456789)
+            string playlistId = $"pl_{DateTime.Now.Ticks}";
+
+            // 2. Trỏ thẳng ra ROOT Collection 'playlists'
+            string playlistUrl = $"{_baseUrl}/playlists/{playlistId}";
+
+            try
+            {
+                var newPlaylist = new
+                {
+                    fields = new
+                    {
+                        name = new { stringValue = playlistName },
+                        userId = new { stringValue = uid }, // Lưu ai là chủ sở hữu
+                        coverImage = new { stringValue = song.CoverImage ?? "" },
+                        isPublic = new { booleanValue = true },
+                        songCount = new { integerValue = 0 }
+                    }
+                };
+
+                // Tạo Playlist rỗng trước
+                await _httpClient.PatchAsync(playlistUrl, new StringContent(JsonSerializer.Serialize(newPlaylist), Encoding.UTF8, "application/json"));
+
+                // Thêm bài hát đầu tiên vào Playlist này
+                await AddSongToExistingPlaylist(playlistId, song);
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Lỗi tạo playlist: " + ex.Message); }
+        }
+
+        public async Task AddSongToExistingPlaylist(string playlistId, Song song)
+        {
+            if (string.IsNullOrEmpty(playlistId) || string.IsNullOrEmpty(song.Id)) return;
+
+            // 👇 1. LƯU BÀI HÁT VÀO ROOT COLLECTION 'playlist_songs'
+            // Dùng ID ghép: PlaylistId_SongId
+            string docId = $"{playlistId}_{song.Id}";
+            string songUrl = $"{_baseUrl}/playlist_songs/{docId}";
+
+            try
+            {
+                var songData = new
+                {
+                    fields = new
+                    {
+                        playlistId = new { stringValue = playlistId },
+                        songId = new { stringValue = song.Id },
+                        title = new { stringValue = song.Title },
+                        artist = new { stringValue = song.Artist },
+                        audioUrl = new { stringValue = song.AudioUrl },
+                        coverImage = new { stringValue = song.CoverImage },
+                        album = new { stringValue = song.Album ?? "Unknown" },
+                        duration = new { integerValue = (int)song.Duration }
+                    }
+                };
+
+                await _httpClient.PatchAsync(songUrl, new StringContent(JsonSerializer.Serialize(songData), Encoding.UTF8, "application/json"));
+
+                // 👇 2. Cập nhật tăng bộ đếm (songCount) cho Playlist cha
+                string playlistUrl = $"{_baseUrl}/playlists/{playlistId}";
+                var response = await _httpClient.GetAsync(playlistUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+                    int currentCount = 0;
+
+                    if (doc.RootElement.TryGetProperty("fields", out var fields) &&
+                        fields.TryGetProperty("songCount", out var sc) &&
+                        sc.TryGetProperty("integerValue", out var val))
+                    {
+                        currentCount = val.ValueKind == JsonValueKind.String ? int.Parse(val.GetString()) : val.GetInt32();
+                    }
+
+                    var updatePayload = new { fields = new { songCount = new { integerValue = currentCount + 1 } } };
+                    string updateUrl = $"{playlistUrl}?updateMask.fieldPaths=songCount";
+                    await _httpClient.PatchAsync(updateUrl, new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json"));
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi thêm bài: {ex.Message}"); }
+        }
+
+        public async Task RemoveSongFromPlaylist(string playlistId, Song song)
+        {
+            if (string.IsNullOrEmpty(playlistId) || string.IsNullOrEmpty(song.Id)) return;
+
+            try
+            {
+                // 👇 XÓA KHỎI ROOT COLLECTION 'playlist_songs'
+                string docId = $"{playlistId}_{song.Id}";
+                string songUrl = $"{_baseUrl}/playlist_songs/{docId}";
+                await _httpClient.DeleteAsync(songUrl);
+
+                // 👇 Giảm bộ đếm (songCount) của Playlist cha
+                string playlistUrl = $"{_baseUrl}/playlists/{playlistId}";
+                var response = await _httpClient.GetAsync(playlistUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+                    int currentCount = 0;
+
+                    if (doc.RootElement.TryGetProperty("fields", out var fields) &&
+                        fields.TryGetProperty("songCount", out var sc) &&
+                        sc.TryGetProperty("integerValue", out var val))
+                    {
+                        currentCount = val.ValueKind == JsonValueKind.String ? int.Parse(val.GetString()) : val.GetInt32();
+                    }
+
+                    int newCount = Math.Max(0, currentCount - 1);
+                    var updatePayload = new { fields = new { songCount = new { integerValue = newCount } } };
+                    string updateUrl = $"{playlistUrl}?updateMask.fieldPaths=songCount";
+                    await _httpClient.PatchAsync(updateUrl, new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json"));
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi xóa bài: {ex.Message}"); }
+        }
+
+        public async Task DeletePlaylist(string playlistId)
+        {
+            if (string.IsNullOrEmpty(playlistId)) return;
+
+            // Xóa ở Root collection
+            string url = $"{_baseUrl}/playlists/{playlistId}";
+            try { await _httpClient.DeleteAsync(url); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi xóa Playlist: {ex.Message}"); }
+        }
+
+        // 👇 ĐÃ SỬA: Dùng Query để tìm trong Root Collection 'playlists'
+        public async Task<List<Playlist>> GetUserPlaylists(string uid)
+        {
+            var playlists = new List<Playlist>();
+            if (string.IsNullOrEmpty(uid)) return playlists;
+
+            string runQueryUrl = $"{_baseUrl}:runQuery";
+            var query = new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "playlists" } },
+                    where = new { fieldFilter = new { field = new { fieldPath = "userId" }, op = "EQUAL", value = new { stringValue = uid } } }
+                }
+            };
+
+            try
+            {
+                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(runQueryUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
+                            {
+                                var p = new Playlist();
+                                p.Id = d.GetProperty("name").GetString().Split('/').Last();
+                                if (fields.TryGetProperty("name", out var n)) p.Name = n.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("coverImage", out var c)) p.CoverImage = c.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("userId", out var o)) p.OwnerId = o.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("songCount", out var sc) && sc.TryGetProperty("integerValue", out var val))
+                                {
+                                    p.SongCount = val.ValueKind == JsonValueKind.String ? int.Parse(val.GetString()) : val.GetInt32();
+                                }
+                                playlists.Add(p);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy Playlist: {ex.Message}"); }
+            return playlists;
+        }
+
+        // 👇 ĐÃ SỬA: Dùng Query để tìm trong Root Collection 'playlist_songs'
+        public async Task<List<Song>> GetSongsFromPlaylist(string playlistId)
+        {
+            var songs = new List<Song>();
+            if (string.IsNullOrEmpty(playlistId)) return songs;
+
+            string runQueryUrl = $"{_baseUrl}:runQuery";
+            var query = new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "playlist_songs" } },
+                    where = new { fieldFilter = new { field = new { fieldPath = "playlistId" }, op = "EQUAL", value = new { stringValue = playlistId } } }
+                }
+            };
+
+            try
+            {
+                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(runQueryUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
+                            {
+                                var s = new Song();
+
+                                // Lưu ý: Lấy ID thật của bài hát chứ không phải ID ghép
+                                if (fields.TryGetProperty("songId", out var sid)) s.Id = sid.GetProperty("stringValue").GetString();
+
+                                if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
+                                    s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
+
+                                songs.Add(s);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc từ Playlist: {ex.Message}"); }
+            return songs;
+        }
+
+        // ==========================================================
+        // 6. CÁC HÀM TƯƠNG TÁC (TIM / CẬP NHẬT) - ROOT COLLECTION
+        // ==========================================================
+
         public async Task AddToFavoritesAsync(Song song)
         {
             try
             {
                 string userId = Preferences.Get("UserId", "");
-                if (string.IsNullOrEmpty(userId)) return;
+                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(song.Id)) return;
 
-                // 1. Tạo ID an toàn từ tên bài hát (để làm Document ID)
-                string safeTitle = song.Title.Replace(" ", "_");
-                string safeArtist = song.Artist.Replace(" ", "_");
-                string docId = WebUtility.UrlEncode($"{safeTitle}_{safeArtist}");
+                // 👇 1. TẠO ID GHÉP (COMPOSITE ID) ĐÚNG NHƯ BẠN ĐÃ LÀM TRÊN FIREBASE
+                string docId = $"{userId}_{song.Id}";
 
-                // 2. URL tới document trong sub-collection "Favorites"
-                string url = $"{_baseUrl}/users/{userId}/Favorites/{docId}";
+                // 👇 2. Trỏ URL ra ROOT Collection 'favorites'
+                string url = $"{_baseUrl}/favorites/{docId}";
 
-                // 3. Tạo Payload JSON theo chuẩn Firestore REST
                 var payload = new
                 {
                     fields = new
                     {
+                        userId = new { stringValue = userId }, // Thêm userId để truy vấn
+                        songId = new { stringValue = song.Id },
                         title = new { stringValue = song.Title },
                         artist = new { stringValue = song.Artist },
                         audioUrl = new { stringValue = song.AudioUrl },
@@ -589,299 +640,336 @@ namespace CosmicMusic.Services
                     }
                 };
 
-                // 4. Gửi lệnh PATCH (Tạo hoặc Ghi đè)
                 var jsonContent = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-                var response = await _httpClient.PatchAsync(url, jsonContent);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var error = await response.Content.ReadAsStringAsync();
-                    System.Diagnostics.Debug.WriteLine($"❌ Lỗi API Thêm Yêu Thích: {error}");
-                }
+                await _httpClient.PatchAsync(url, jsonContent);
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"❌ Exception Thêm Yêu Thích: {ex.Message}");
-            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"❌ Exception Thêm Yêu Thích: {ex.Message}"); }
         }
 
-        /// <summary>
-        /// Xóa bài hát khỏi danh sách Yêu thích (REST API)
-        /// </summary>
         public async Task RemoveFromFavoritesAsync(Song song)
         {
             try
             {
                 string userId = Preferences.Get("UserId", "");
-                if (string.IsNullOrEmpty(userId)) return;
+                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(song.Id)) return;
 
-                // 1. Tái tạo ID Document giống lúc thêm
-                string safeTitle = song.Title.Replace(" ", "_");
-                string safeArtist = song.Artist.Replace(" ", "_");
-                string docId = WebUtility.UrlEncode($"{safeTitle}_{safeArtist}");
+                // 👇 Trỏ URL ra ROOT Collection 'favorites' với ID ghép
+                string docId = $"{userId}_{song.Id}";
+                string url = $"{_baseUrl}/favorites/{docId}";
 
-                // 2. URL tới document cần xóa
-                string url = $"{_baseUrl}/users/{userId}/Favorites/{docId}";
-
-                // 3. Gửi lệnh DELETE
                 await _httpClient.DeleteAsync(url);
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"❌ Exception Xóa Yêu Thích: {ex.Message}");
-            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"❌ Exception Xóa Yêu Thích: {ex.Message}"); }
         }
 
-        /// <summary>
-        /// Lấy toàn bộ danh sách bài hát yêu thích của User (REST API)
-        /// </summary>
+        // ĐÃ SỬA: Hàm Get dùng Query để lấy ra các bài do User hiện tại thả tim
         public async Task<List<Song>> GetFavoritesAsync()
         {
-            string userId = Preferences.Get("UserId", "");
-            if (string.IsNullOrEmpty(userId)) return new List<Song>();
-
-            // Đường dẫn đến collection Favorites
-            string url = $"{_baseUrl}/users/{userId}/Favorites";
             var songs = new List<Song>();
+            string userId = Preferences.Get("UserId", "");
+            if (string.IsNullOrEmpty(userId)) return songs;
+
+            string runQueryUrl = $"{_baseUrl}:runQuery";
+            var query = new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "favorites" } },
+                    where = new
+                    {
+                        fieldFilter = new
+                        {
+                            field = new { fieldPath = "userId" }, // 👈 Chỉ lấy những bài do User này thả tim
+                            op = "EQUAL",
+                            value = new { stringValue = userId }
+                        }
+                    }
+                }
+            };
 
             try
             {
-                var response = await _httpClient.GetAsync(url);
+                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(runQueryUrl, content);
+
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
                     using var doc = JsonDocument.Parse(json);
 
-                    // Firestore trả về mảng "documents"
-                    if (doc.RootElement.TryGetProperty("documents", out var docs))
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
                     {
-                        foreach (var d in docs.EnumerateArray())
+                        foreach (var item in doc.RootElement.EnumerateArray())
                         {
-                            if (d.TryGetProperty("fields", out var fields))
+                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
                             {
                                 var s = new Song();
-                                // Map dữ liệu từ JSON Firestore sang Object Song
+
+                                // Gán lại SongId chuẩn để khi mở UI nó không bị lỗi
+                                if (fields.TryGetProperty("songId", out var sid)) s.Id = sid.GetProperty("stringValue").GetString();
+
                                 if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
+                                if (fields.TryGetProperty("lyrics", out var ly) && ly.TryGetProperty("stringValue", out var lystr)) s.Lyrics = lystr.GetString();
+                                if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
+                                    s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
 
-                                if (fields.TryGetProperty("lyrics", out var ly) && ly.TryGetProperty("stringValue", out var lystr))
-                                {
-                                    s.Lyrics = lystr.GetString();
-                                }
-                                // Bổ sung SearchKeywords nếu cần (tùy chọn)
-
-                                songs.Add(s);
+                                if (!string.IsNullOrEmpty(s.AudioUrl)) songs.Add(s);
                             }
                         }
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Lỗi lấy danh sách yêu thích: {ex.Message}");
-            }
-
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy ds yêu thích: {ex.Message}"); }
             return songs;
         }
-        // 👇 THÊM HÀM NÀY VÀO Services/FirestoreService.cs
 
-        /// <summary>
-        /// Kiểm tra xem bài hát đã có trong danh sách Yêu thích chưa
-        /// </summary>
         public async Task<bool> IsSongInFavoritesAsync(Song song)
         {
             try
             {
                 string userId = Preferences.Get("UserId", "");
-                if (string.IsNullOrEmpty(userId)) return false;
+                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(song.Id)) return false;
 
-                // Tái tạo ID Document giống quy tắc lúc thêm
-                string safeTitle = song.Title.Replace(" ", "_");
-                string safeArtist = song.Artist.Replace(" ", "_");
-                string docId = WebUtility.UrlEncode($"{safeTitle}_{safeArtist}");
+                // 👇 Kiểm tra nhanh bằng ID ghép
+                string docId = $"{userId}_{song.Id}";
+                string url = $"{_baseUrl}/favorites/{docId}";
 
-                string url = $"{_baseUrl}/users/{userId}/Favorites/{docId}";
-
-                // Gửi lệnh GET để kiểm tra
                 var response = await _httpClient.GetAsync(url);
-
-                // Nếu Server trả về 200 OK -> Có tồn tại
                 return response.IsSuccessStatusCode;
             }
-            catch
+            catch { return false; }
+        }
+
+        public async Task<bool> IsSongInUserLibrary(string userId, Song song)
+        {
+            if (song == null || string.IsNullOrEmpty(song.Id)) return false;
+
+            try
             {
+                var playlists = await GetUserPlaylists(userId);
+                if (playlists == null || playlists.Count == 0) return false;
+
+                foreach (var playlist in playlists)
+                {
+                    string checkUrl = $"{_baseUrl}/users/{userId}/playlists/{playlist.Id}/songs/{song.Id}";
+                    var response = await _httpClient.GetAsync(checkUrl);
+                    if (response.IsSuccessStatusCode) return true;
+                }
                 return false;
             }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi kiểm tra thư viện: {ex.Message}"); return false; }
         }
-        // 👇👇👇 HÀM MỚI: CẬP NHẬT SỐ LƯỢT THÍCH TOÀN CỤC 👇👇👇
-        // Trong FirestoreService.cs
+
+        // ĐÃ TỐI ƯU: Update thẳng vào Document ID, không cần Query tốn tài nguyên
         public async Task UpdateGlobalLikeCount(Song song, int change)
         {
             try
             {
-                // 1. Tìm ID bài hát trên Firebase (Vì Song Model chưa lưu ID)
-                // Chúng ta dùng query search để tìm document ID
-                string runQueryUrl = $"{_baseUrl}:runQuery";
+                if (string.IsNullOrEmpty(song.Id)) return;
 
-                var query = new
+                // 1. Lấy Like hiện tại
+                string getUrl = $"{_baseUrl}/songs/{song.Id}";
+                var getResponse = await _httpClient.GetAsync(getUrl);
+                int currentLike = 0;
+
+                if (getResponse.IsSuccessStatusCode)
                 {
-                    structuredQuery = new
-                    {
-                        from = new[] { new { collectionId = "songs" } },
-                        where = new
-                        {
-                            compositeFilter = new
-                            {
-                                op = "AND",
-                                filters = new object[]
-                                {
-                                    new { fieldFilter = new { field = new { fieldPath = "title" }, op = "EQUAL", value = new { stringValue = song.Title } } },
-                                    new { fieldFilter = new { field = new { fieldPath = "artist" }, op = "EQUAL", value = new { stringValue = song.Artist } } }
-                                }
-                            }
-                        },
-                        limit = 1
-                    }
-                };
-
-                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(runQueryUrl, content);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
+                    var json = await getResponse.Content.ReadAsStringAsync();
                     using var doc = JsonDocument.Parse(json);
-
-                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    if (doc.RootElement.TryGetProperty("fields", out var f) && f.TryGetProperty("likeCount", out var lc))
                     {
-                        foreach (var item in doc.RootElement.EnumerateArray())
-                        {
-                            // Lấy được Document Name
-                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("name", out var nameProp))
-                            {
-                                // Lấy giá trị likeCount hiện tại (để cộng dồn cho chính xác)
-                                int currentLike = 0;
-                                if (d.TryGetProperty("fields", out var f) && f.TryGetProperty("likeCount", out var lc))
-                                {
-                                    if (lc.TryGetProperty("integerValue", out var val))
-                                        currentLike = val.ValueKind == JsonValueKind.String ? int.Parse(val.GetString()) : val.GetInt32();
-                                }
-
-                                // Tính số like mới (đảm bảo không âm)
-                                int newLike = Math.Max(0, currentLike + change);
-
-                                // Lấy ID Document
-                                string fullPath = nameProp.GetString();
-                                string docId = fullPath.Split('/').Last();
-
-                                // Gửi lệnh Update
-                                string updateUrl = $"{_baseUrl}/songs/{docId}?updateMask.fieldPaths=likeCount";
-                                var updatePayload = new
-                                {
-                                    fields = new
-                                    {
-                                        likeCount = new { integerValue = newLike }
-                                    }
-                                };
-
-                                await _httpClient.PatchAsync(updateUrl, new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json"));
-                                System.Diagnostics.Debug.WriteLine($"✅ Đã cập nhật Like lên Server: {newLike}");
-                                return;
-                            }
-                        }
+                        if (lc.TryGetProperty("integerValue", out var val))
+                            currentLike = val.ValueKind == JsonValueKind.String ? int.Parse(val.GetString()) : val.GetInt32();
                     }
                 }
+
+                // 2. Gửi lệnh Update
+                int newLike = Math.Max(0, currentLike + change);
+                string updateUrl = $"{_baseUrl}/songs/{song.Id}?updateMask.fieldPaths=likeCount";
+                var updatePayload = new { fields = new { likeCount = new { integerValue = newLike } } };
+
+                await _httpClient.PatchAsync(updateUrl, new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json"));
+                System.Diagnostics.Debug.WriteLine($"✅ Đã cập nhật Like lên Server: {newLike}");
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"❌ Lỗi update like: {ex.Message}");
-            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"❌ Lỗi update like: {ex.Message}"); }
         }
-        // 👇👇👇 HÀM MỚI: CẬP NHẬT LYRIC LÊN FIREBASE 👇👇👇
-        public async Task UpdateSongLyricsAsync(Song song)
+
+        // ĐÃ TỐI ƯU: Update thẳng vào Document ID
+        // ĐÃ NÂNG CẤP: Báo cáo kết quả Lưu thành công hay thất bại
+        public async Task<bool> UpdateSongLyricsAsync(Song song)
         {
-            if (song == null || string.IsNullOrEmpty(song.Lyrics)) return;
+            if (song == null || string.IsNullOrEmpty(song.Lyrics) || string.IsNullOrEmpty(song.Id)) return false;
 
             try
             {
-                // 1. Tìm ID của bài hát trên Firebase (Dựa vào Tên và Ca sĩ)
-                // Chúng ta dùng query search tương tự hàm Search nhưng tìm chính xác
-                string runQueryUrl = $"{_baseUrl}:runQuery";
+                string updateUrl = $"{_baseUrl}/songs/{song.Id}?updateMask.fieldPaths=lyrics";
+                var updatePayload = new { fields = new { lyrics = new { stringValue = song.Lyrics } } };
 
-                var query = new
-                {
-                    structuredQuery = new
-                    {
-                        from = new[] { new { collectionId = "songs" } },
-                        where = new
-                        {
-                            compositeFilter = new
-                            {
-                                op = "AND",
-                                filters = new object[]
-                                {
-                                    new { fieldFilter = new { field = new { fieldPath = "title" }, op = "EQUAL", value = new { stringValue = song.Title } } },
-                                    new { fieldFilter = new { field = new { fieldPath = "artist" }, op = "EQUAL", value = new { stringValue = song.Artist } } }
-                                }
-                            }
-                        },
-                        limit = 1
-                    }
-                };
-
-                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(runQueryUrl, content);
+                var response = await _httpClient.PatchAsync(updateUrl, new StringContent(System.Text.Json.JsonSerializer.Serialize(updatePayload), System.Text.Encoding.UTF8, "application/json"));
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var json = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(json);
-
-                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in doc.RootElement.EnumerateArray())
-                        {
-                            // 2. Lấy được Document Name (chứa ID)
-                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("name", out var nameProp))
-                            {
-                                string fullPath = nameProp.GetString(); // Dạng: projects/.../documents/songs/ID_BAI_HAT
-
-                                // Tách lấy ID (hoặc dùng fullPath để update luôn cũng được nhưng base url của mình hơi khác)
-                                // Cách an toàn nhất với REST API là dùng DocumentMask để chỉ update 1 trường
-
-                                // URL để update trực tiếp document này
-                                // Lưu ý: _baseUrl của chúng ta là .../documents. fullPath cũng bắt đầu từ documents.
-                                // Chúng ta cần xử lý chuỗi URL một chút cho khớp.
-
-                                // Cách đơn giản: Lấy phần cuối cùng làm ID
-                                string docId = fullPath.Split('/').Last();
-                                string updateUrl = $"{_baseUrl}/songs/{docId}?updateMask.fieldPaths=lyrics";
-
-                                var updatePayload = new
-                                {
-                                    fields = new
-                                    {
-                                        lyrics = new { stringValue = song.Lyrics }
-                                    }
-                                };
-
-                                await _httpClient.PatchAsync(updateUrl, new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json"));
-                                System.Diagnostics.Debug.WriteLine($"✅ Đã lưu Lyric lên Firebase cho bài: {song.Title}");
-                                return; // Xong việc thì thoát
-                            }
-                        }
-                    }
+                    System.Diagnostics.Debug.WriteLine($"✅ Đã lưu Lyric lên Firebase cho bài: {song.Title}");
+                    return true;
                 }
+                return false;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"❌ Lỗi lưu Lyric: {ex.Message}");
+                return false;
             }
         }
+
+        // ==========================================================
+        // 7. LẤY BÀI HÁT THEO ALBUM HOẶC CA SĨ (TÌM BẰNG ID CHUẨN)
+        // ==========================================================
+        public async Task<List<Song>> GetSongsByAlbumIdAsync(string albumId)
+        {
+            var songs = new List<Song>();
+            if (string.IsNullOrEmpty(albumId)) return songs;
+
+            string runQueryUrl = $"{_baseUrl}:runQuery";
+            var query = new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "songs" } },
+                    where = new
+                    {
+                        fieldFilter = new
+                        {
+                            field = new { fieldPath = "albumId" }, // 👈 TÌM BẰNG ID
+                            op = "EQUAL",
+                            value = new { stringValue = albumId }
+                        }
+                    }
+                }
+            };
+
+            try
+            {
+                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(runQueryUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
+                            {
+                                var s = new Song();
+                                s.Id = d.GetProperty("name").GetString().Split('/').Last();
+                                if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
+                                    s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
+
+                                if (!string.IsNullOrEmpty(s.AudioUrl)) songs.Add(s);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc theo Album: {ex.Message}"); }
+            return songs;
+        }
+
+        public async Task<List<Song>> GetSongsByArtistIdAsync(string artistId)
+        {
+            var songs = new List<Song>();
+            if (string.IsNullOrEmpty(artistId)) return songs;
+
+            string runQueryUrl = $"{_baseUrl}:runQuery";
+            var query = new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "songs" } },
+                    where = new
+                    {
+                        fieldFilter = new
+                        {
+                            field = new { fieldPath = "artistId" }, // 👈 TÌM BẰNG ID
+                            op = "EQUAL",
+                            value = new { stringValue = artistId }
+                        }
+                    }
+                }
+            };
+
+            try
+            {
+                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(runQueryUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
+                            {
+                                var s = new Song();
+                                s.Id = d.GetProperty("name").GetString().Split('/').Last();
+                                if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
+                                    s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
+
+                                if (!string.IsNullOrEmpty(s.AudioUrl)) songs.Add(s);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc theo Ca sĩ: {ex.Message}"); }
+            return songs;
+        }
+        // BỔ SUNG: Hàm lấy riêng Lyric từ database để tránh bị mất dữ liệu
+        public async Task<string> GetLyricsFromDatabaseAsync(string songId)
+        {
+            if (string.IsNullOrEmpty(songId)) return null;
+            try
+            {
+                string url = $"{_baseUrl}/songs/{songId}";
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("fields", out var fields) &&
+                        fields.TryGetProperty("lyrics", out var ly))
+                    {
+                        return ly.GetProperty("stringValue").GetString();
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
     }
+
 
     public class UserFirestoreInfo
     {

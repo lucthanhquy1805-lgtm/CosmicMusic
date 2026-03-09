@@ -1,26 +1,22 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CosmicMusic.Models;
+using System.Collections.ObjectModel;
 
 namespace CosmicMusic.ViewModels
 {
-    // Sử dụng IQueryAttributable để nhận dữ liệu linh hoạt hơn
     public partial class PlayerViewModel : ObservableObject, IQueryAttributable
     {
-        // 1. Khai báo AudioViewModel là "bộ não" chính
         private readonly AudioViewModel _audioViewModel;
 
-        // 2. CONSTRUCTOR
         public PlayerViewModel(AudioViewModel audioViewModel)
         {
             _audioViewModel = audioViewModel;
 
-            // Kỹ thuật "Event Forwarding" (Cầu nối sự kiện):
             _audioViewModel.PropertyChanged += (s, e) =>
             {
                 OnPropertyChanged(e.PropertyName);
 
-                // Cập nhật các thuộc tính cơ bản
                 if (e.PropertyName == nameof(AudioViewModel.CurrentSong)) OnPropertyChanged(nameof(CurrentSong));
                 if (e.PropertyName == nameof(AudioViewModel.IsPlaying)) OnPropertyChanged(nameof(IsPlaying));
                 if (e.PropertyName == nameof(AudioViewModel.Duration)) OnPropertyChanged(nameof(Duration));
@@ -28,25 +24,25 @@ namespace CosmicMusic.ViewModels
                 if (e.PropertyName == nameof(AudioViewModel.CurrentPositionSeconds)) OnPropertyChanged(nameof(CurrentPositionSeconds));
                 if (e.PropertyName == nameof(AudioViewModel.IsShuffle)) OnPropertyChanged(nameof(IsShuffle));
                 if (e.PropertyName == nameof(AudioViewModel.RepeatMode)) OnPropertyChanged(nameof(RepeatMode));
-
-                // 👇 THÊM: Cập nhật thông báo cho Lyric và Tim
                 if (e.PropertyName == nameof(AudioViewModel.IsLyricsVisible)) OnPropertyChanged(nameof(IsLyricsVisible));
                 if (e.PropertyName == nameof(AudioViewModel.IsFavorite)) OnPropertyChanged(nameof(IsFavorite));
+
+                // 👇 BỔ SUNG: Cầu nối lắng nghe trạng thái Đang sửa Lyric
+                if (e.PropertyName == nameof(AudioViewModel.IsEditingLyrics)) OnPropertyChanged(nameof(IsEditingLyrics));
             };
         }
-
-        // 3. CÁC THUỘC TÍNH (CẦU NỐI - CHỈ TRỎ SANG AUDIOVIEWMODEL)
 
         public Song CurrentSong => _audioViewModel.CurrentSong;
         public bool IsPlaying => _audioViewModel.IsPlaying;
         public TimeSpan Duration => _audioViewModel.Duration;
         public TimeSpan CurrentPosition => _audioViewModel.CurrentPosition;
-
-        // 👇 THÊM: Cầu nối hiển thị Lyric
         public bool IsLyricsVisible => _audioViewModel.IsLyricsVisible;
-
-        // 👇 THÊM: Cầu nối hiển thị Tim đỏ/xám
         public bool IsFavorite => _audioViewModel.IsFavorite;
+        // Thêm dòng này vào PlayerViewModel.cs
+        public ObservableCollection<LyricLine> SyncedLyrics => _audioViewModel.SyncedLyrics;
+
+        // 👇 BỔ SUNG: Biến trạng thái sửa Lyric
+        public bool IsEditingLyrics => _audioViewModel.IsEditingLyrics;
 
         public double CurrentPositionSeconds
         {
@@ -63,55 +59,23 @@ namespace CosmicMusic.ViewModels
         public bool IsShuffle => _audioViewModel.IsShuffle;
         public int RepeatMode => _audioViewModel.RepeatMode;
 
-        // 4. NHẬN DỮ LIỆU TỪ TRANG KHÁC
-        public void ApplyQueryAttributes(IDictionary<string, object> query)
-        {
-            if (query.ContainsKey("SongData"))
-            {
-                var songData = query["SongData"] as LibraryItem;
-                // Logic xử lý nếu cần
-            }
-        }
+        public void ApplyQueryAttributes(IDictionary<string, object> query) { }
 
-        // 5. CÁC LỆNH ĐIỀU KHIỂN (GỌI SANG AUDIOVIEWMODEL THỰC HIỆN)
+        [RelayCommand] public void PlayPause() => _audioViewModel.PlayPauseCommand.Execute(null);
+        [RelayCommand] public void Previous() => _audioViewModel.PreviousCommand.Execute(null);
+        [RelayCommand] public void Next() => _audioViewModel.NextCommand.Execute(null);
+        [RelayCommand] public void ToggleShuffle() => _audioViewModel.ToggleShuffleCommand.Execute(null);
+        [RelayCommand] public void ToggleRepeat() => _audioViewModel.ToggleRepeatCommand.Execute(null);
+        [RelayCommand] public void ToggleLyrics() => _audioViewModel.ToggleLyricsCommand.Execute(null);
+        [RelayCommand] public void DragStarted() => _audioViewModel.DragStartedCommand.Execute(null);
+        [RelayCommand] public void DragCompleted() => _audioViewModel.DragCompletedCommand.Execute(null);
+        [RelayCommand] public async Task GoBack() => await Shell.Current.GoToAsync("..");
 
-        [RelayCommand]
-        public void PlayPause() => _audioViewModel.PlayPauseCommand.Execute(null);
+        [RelayCommand] public void ToggleFavorite() { if (_audioViewModel.ToggleFavoriteCommand != null) _audioViewModel.ToggleFavoriteCommand.Execute(null); }
+        [RelayCommand] public void AddToPlaylist() { if (_audioViewModel.AddToPlaylistCommand != null) _audioViewModel.AddToPlaylistCommand.Execute(null); }
 
-        [RelayCommand]
-        public void Previous() => _audioViewModel.PreviousCommand.Execute(null);
-
-        [RelayCommand]
-        public void Next() => _audioViewModel.NextCommand.Execute(null);
-
-        [RelayCommand]
-        public void ToggleShuffle() => _audioViewModel.ToggleShuffleCommand.Execute(null);
-
-        [RelayCommand]
-        public void ToggleRepeat() => _audioViewModel.ToggleRepeatCommand.Execute(null);
-
-        // 👇 THÊM: Lệnh bật Lyric (Gọi sang nhạc trưởng)
-        [RelayCommand]
-        public void ToggleLyrics() => _audioViewModel.ToggleLyricsCommand.Execute(null);
-
-        // 👇 THÊM: Lệnh thả tim (Gọi sang nhạc trưởng)
-        [RelayCommand]
-        public void ToggleFavorite()
-        {
-            if (_audioViewModel.ToggleFavoriteCommand != null)
-                _audioViewModel.ToggleFavoriteCommand.Execute(null);
-        }
-
-        [RelayCommand]
-        public void DragStarted() => _audioViewModel.DragStartedCommand.Execute(null);
-
-        [RelayCommand]
-        public void DragCompleted() => _audioViewModel.DragCompletedCommand.Execute(null);
-
-        [RelayCommand]
-        public async Task GoBack()
-        {
-            await Shell.Current.GoToAsync("..");
-        }
+        // 👇 BỔ SUNG: 2 lệnh để thao tác bật Edit và Save Lyric
+        [RelayCommand] public void ToggleEditLyrics() { if (_audioViewModel.ToggleEditLyricsCommand != null) _audioViewModel.ToggleEditLyricsCommand.Execute(null); }
+        [RelayCommand] public void SaveLyrics() { if (_audioViewModel.SaveLyricsCommand != null) _audioViewModel.SaveLyricsCommand.Execute(null); }
     }
 }

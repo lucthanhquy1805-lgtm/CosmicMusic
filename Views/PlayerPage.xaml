@@ -3,11 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             xmlns:models="clr-namespace:CosmicMusic.Models" 
              x:Class="CosmicMusic.Views.PlayerPage"
              x:DataType="viewmodels:AudioViewModel"
              Title="Now Playing"
              Shell.NavBarIsVisible="False">
-
     <ContentPage.Resources>
         <ResourceDictionary>
             <Color x:Key="CosmicPink">#D946EF</Color>
@@ -24,10 +24,12 @@
             <x:String x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</x:String>
             <x:String x:Key="IconRepeat">M7,7H17V10L21,6L17,2V5H5V11H7V7M17,17H7V14L3,18L7,22V19H19V13H17V17Z</x:String>
             <x:String x:Key="IconRepeatOne">M7,7H17V10L21,6L17,2V5H5V11H7V7M17,17H7V14L3,18L7,22V19H19V13H17V17M13,15V9H11L9,10V11H10.5V15H9V16H14V15H13Z</x:String>
+            <x:String x:Key="IconPlus">M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z</x:String>
         </ResourceDictionary>
     </ContentPage.Resources>
 
     <Grid BackgroundColor="#120520">
+
         <Image Source="{Binding CurrentSong.CoverImage, TargetNullValue='cover_chill.jpg'}"
                Aspect="AspectFill"
                Opacity="1.0"
@@ -37,23 +39,16 @@
                  Opacity="0.6"
                  IsVisible="{Binding IsLyricsVisible}"/>
 
-        <Grid RowDefinitions="Auto, *, Auto, Auto, Auto, Auto" Padding="25,30,25,20" RowSpacing="10">
+        <Grid IsVisible="{Binding IsLyricsVisible, Converter={StaticResource InvertedBoolConverter}}">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#8E2DE2" Offset="0.0" />
+                    <GradientStop Color="#120520" Offset="0.8" />
+                </LinearGradientBrush>
+            </Grid.Background>
+        </Grid>
 
-            <Grid.Triggers>
-                <DataTrigger TargetType="Grid" Binding="{Binding IsLyricsVisible}" Value="False">
-                    <Setter Property="Background">
-                        <Setter.Value>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                <GradientStop Color="#8E2DE2" Offset="0.0" />
-                                <GradientStop Color="#120520" Offset="0.8" />
-                            </LinearGradientBrush>
-                        </Setter.Value>
-                    </Setter>
-                </DataTrigger>
-                <DataTrigger TargetType="Grid" Binding="{Binding IsLyricsVisible}" Value="True">
-                    <Setter Property="Background" Value="Transparent"/>
-                </DataTrigger>
-            </Grid.Triggers>
+        <Grid RowDefinitions="Auto, *, Auto, Auto, Auto, Auto" Padding="25,30,25,20" RowSpacing="10">
 
             <Grid Grid.Row="0" ColumnDefinitions="50, *, 50" VerticalOptions="Start" HeightRequest="60">
                 <Grid Grid.Column="0" WidthRequest="50" HeightRequest="50" BackgroundColor="Transparent">
@@ -68,7 +63,12 @@
                     <Label Text="{Binding CurrentSong.Album, TargetNullValue='Unknown Album'}" FontFamily="MontserratBold" FontSize="14" TextColor="White" HorizontalOptions="Center" LineBreakMode="TailTruncation"/>
                 </VerticalStackLayout>
 
-                <Label Grid.Column="2" Text="⋮" FontSize="30" TextColor="White" VerticalOptions="Center" HorizontalOptions="Center"/>
+                <Grid Grid.Column="2" WidthRequest="50" HeightRequest="50" BackgroundColor="Transparent">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding AddToPlaylistCommand}" />
+                    </Grid.GestureRecognizers>
+                    <Path Data="{StaticResource IconPlus}" Fill="White" Aspect="Uniform" HeightRequest="22" WidthRequest="22" VerticalOptions="Center" HorizontalOptions="Center"/>
+                </Grid>
             </Grid>
 
             <Grid Grid.Row="1" VerticalOptions="FillAndExpand" Padding="0,10">
@@ -112,28 +112,41 @@
                     </Grid>
 
                     <Grid Grid.Row="1">
-                        <ScrollView IsVisible="{Binding IsEditingLyrics, Converter={StaticResource InvertedBoolConverter}}" BackgroundColor="Transparent">
-                            <VerticalStackLayout>
-                                <Label Text="{Binding CurrentSong.Lyrics, TargetNullValue='Chưa có lời bài hát...'}" 
-                                       TextColor="White" 
-                                       FontSize="28" 
-                                       FontAttributes="Bold"
-                                       HorizontalTextAlignment="Center"
-                                       LineHeight="1.4"
-                                       FontFamily="MontserratBold"
-                                       Margin="0,10">
-                                    <Label.Shadow>
-                                        <Shadow Brush="Black" Offset="1,1" Radius="3" Opacity="0.8"/>
-                                    </Label.Shadow>
-                                </Label>
-                                <BoxView HeightRequest="60" Color="Transparent"/>
-                            </VerticalStackLayout>
-                        </ScrollView>
 
-                        <Editor Text="{Binding CurrentSong.Lyrics}"
-                                IsVisible="{Binding IsEditingLyrics}"
+                        <CollectionView x:Name="LyricsCollectionView"
+                ItemsSource="{Binding SyncedLyrics}" 
+                IsVisible="{Binding IsEditingLyrics, Converter={StaticResource InvertedBoolConverter}}" 
+                BackgroundColor="Transparent"
+                Margin="0,10,0,10">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:LyricLine">
+                                    <Label Text="{Binding Text}" 
+                                           HorizontalTextAlignment="Center"
+                                           LineHeight="1.5"
+                                           Margin="0,8"
+                                           FontFamily="MontserratBold">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter Property="TextColor" Value="White"/>
+                                                <Setter Property="FontSize" Value="26"/>
+                                                <Setter Property="Opacity" Value="1.0"/>
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="False">
+                                                <Setter Property="TextColor" Value="#88FFFFFF"/>
+                                                <Setter Property="FontSize" Value="20"/>
+                                                <Setter Property="Opacity" Value="0.6"/>
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                        <Label.Shadow>
+                                            <Shadow Brush="Black" Offset="1,1" Radius="3" Opacity="0.8"/>
+                                        </Label.Shadow>
+                                    </Label>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Editor Text="{Binding EditLyricsText}"  IsVisible="{Binding IsEditingLyrics}"
                                 TextColor="White"
-                                Placeholder="Nhập lời bài hát tại đây..."
+                                Placeholder="Nhập lời bài hát dạng LRC: [00:15.00] Lời bài hát..."
                                 PlaceholderColor="#888"
                                 FontSize="20"
                                 FontFamily="MontserratRegular"

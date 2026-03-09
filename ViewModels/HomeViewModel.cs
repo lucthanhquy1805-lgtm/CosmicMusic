@@ -7,19 +7,25 @@ using CosmicMusic.Views;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace CosmicMusic.ViewModels
 {
     public partial class HomeViewModel : ObservableObject, IRecipient<SongPlayedMessage>
     {
-        private readonly MusicApiService _musicService;
+        // 👇 ĐÃ ĐỔI: Sử dụng FirestoreService thay cho MusicApiService cũ
+        private readonly FirestoreService _firestoreService;
         private readonly AudioViewModel _audioViewModel;
 
         // ==========================================================
-        // 1. CÁC DANH SÁCH DỮ LIỆU HIỂN THỊ
+        // 1. CÁC DANH SÁCH DỮ LIỆU HIỂN THỊ (ĐÃ MỞ RỘNG)
         // ==========================================================
-        public ObservableCollection<Song> Playlist { get; set; } = new();
-        public ObservableCollection<Album> FeaturedAlbums { get; set; } = new();
+        public ObservableCollection<Song> Playlist { get; set; } = new();           // Dùng hiển thị danh sách bài hát
+        public ObservableCollection<Album> FeaturedAlbums { get; set; } = new();    // Danh sách Album
+        public ObservableCollection<Artist> Artists { get; set; } = new();          // 👇 Danh sách Ca sĩ (MỚI)
+        public ObservableCollection<Genre> Genres { get; set; } = new();            // 👇 Danh sách Thể loại (MỚI)
+
+        // Giữ lại TopArtists kiểu Album cho giao diện cũ (để không lỗi XAML)
         public ObservableCollection<Album> TopArtists { get; set; } = new();
 
         // Danh sách bài hát vừa nghe
@@ -39,9 +45,10 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private bool _hasHistory;
 
         // 3. Khởi tạo
-        public HomeViewModel(MusicApiService musicService, AudioViewModel audioViewModel)
+        // 👇 ĐÃ SỬA: Bơm (Inject) FirestoreService vào
+        public HomeViewModel(FirestoreService firestoreService, AudioViewModel audioViewModel)
         {
-            _musicService = musicService;
+            _firestoreService = firestoreService;
             _audioViewModel = audioViewModel;
 
             // Đăng ký nhận tin nhắn
@@ -49,7 +56,7 @@ namespace CosmicMusic.ViewModels
 
             LoadUserAvatar();
             LoadHistory();
-            LoadSongs();
+            LoadDataFromFirebase(); // Đổi tên hàm cho rõ nghĩa
         }
 
         // ==========================================================
@@ -117,53 +124,64 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 4. HÀM TẢI VÀ GOM NHÓM DỮ LIỆU
+        // 4. HÀM TẢI DỮ LIỆU TỪ FIREBASE (ĐÃ SỬA CHỮA HOÀN TOÀN)
         // ==========================================================
-        private async void LoadSongs()
+        private async void LoadDataFromFirebase()
         {
             try
             {
-                var allSongs = await _musicService.GetSongsAsync();
-                if (allSongs == null || allSongs.Count == 0) return;
+                // Gọi song song các tác vụ để tăng tốc độ tải
+                var taskSongs = _firestoreService.GetAllSongsAsync();
+                var taskAlbums = _firestoreService.GetAllAlbumsAsync();
+                var taskArtists = _firestoreService.GetAllArtistsAsync();
+                var taskGenres = _firestoreService.GetAllGenresAsync();
+
+                // Chờ tất cả dữ liệu tải xong
+                await Task.WhenAll(taskSongs, taskAlbums, taskArtists, taskGenres);
 
                 // Cập nhật UI trên Main Thread
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
+                    // 1. Gán danh sách Bài hát
                     Playlist.Clear();
-                    foreach (var song in allSongs) Playlist.Add(song);
-
-                    FeaturedAlbums.Clear();
-                    var uniqueAlbums = allSongs
-                        .Where(s => !string.IsNullOrEmpty(s.Album))
-                        .GroupBy(s => s.Album.Trim())
-                        .Select(g => g.First())
-                        .ToList();
-
-                    foreach (var s in uniqueAlbums)
+                    foreach (var song in taskSongs.Result)
                     {
-                        FeaturedAlbums.Add(new Album
-                        {
-                            Title = s.Album.Trim(),
-                            Artist = s.Artist ?? "Unknown",
-                            CoverImage = s.CoverImage,
-                            Description = "Album"
-                        });
+                        Playlist.Add(song);
                     }
 
-                    TopArtists.Clear();
-                    var uniqueArtists = allSongs
-                        .Where(s => !string.IsNullOrEmpty(s.Artist))
-                        .GroupBy(s => s.Artist.Trim())
-                        .Select(g => g.First())
-                        .ToList();
+                    // 2. Gán danh sách Album
+                    FeaturedAlbums.Clear();
+                    foreach (var album in taskAlbums.Result)
+                    {
+                        FeaturedAlbums.Add(album);
+                    }
 
-                    foreach (var s in uniqueArtists)
+                    // 3. Gán danh sách Ca sĩ (Model mới)
+                    Artists.Clear();
+                    foreach (var artist in taskArtists.Result)
+                    {
+                        Artists.Add(artist);
+                    }
+
+                    // 4. Gán danh sách Thể loại
+                    Genres.Clear();
+                    foreach (var genre in taskGenres.Result)
+                    {
+                        Genres.Add(genre);
+                    }
+
+                    // --- GIỮ LẠI ĐỂ TƯƠNG THÍCH XAML CŨ ---
+                    // Vì giao diện Home của bạn đang bind biến TopArtists (dạng List<Album>)
+                    // Nên tôi map dữ liệu Artist mới lấy được qua chuẩn cũ để giao diện hiển thị ngay lập tức
+                    TopArtists.Clear();
+                    foreach (var artist in taskArtists.Result)
                     {
                         TopArtists.Add(new Album
                         {
-                            Title = s.Artist.Trim(),
+                            Id = artist.Id, // 👈 THÊM DÒNG NÀY ĐỂ KHI BẤM VÀO CA SĨ NÓ CÓ ID ĐỂ TÌM
+                            Title = artist.Name,
                             Artist = "Nghệ sĩ",
-                            CoverImage = s.CoverImage,
+                            CoverImage = artist.Avatar,
                             Description = "Artist"
                         });
                     }
@@ -171,7 +189,7 @@ namespace CosmicMusic.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Lỗi HomeViewModel: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Lỗi HomeViewModel (LoadData): {ex.Message}");
             }
         }
 
@@ -265,7 +283,6 @@ namespace CosmicMusic.ViewModels
         }
 
         [RelayCommand] public async Task NavigateToPlayer() { if (_audioViewModel.CurrentSong != null) await Shell.Current.GoToAsync(nameof(PlayerPage)); }
-        // Lưu ý: Đã sửa lại đường dẫn điều hướng SearchPage thành Route tuyệt đối để tránh chồng chéo trang
         [RelayCommand] public async Task NavigateToSearch() { await Shell.Current.GoToAsync("//SearchTab/SearchPage"); }
         [RelayCommand] public void TapUserAvatar() { IsUserMenuVisible = !IsUserMenuVisible; }
         [RelayCommand] public void CloseUserMenu() { IsUserMenuVisible = false; }

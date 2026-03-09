@@ -1,20 +1,27 @@
-﻿using CosmicMusic.ViewModels;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using CosmicMusic.ViewModels;
 
 namespace CosmicMusic.Views;
 
 public partial class PlayerPage : ContentPage
 {
-    // Chúng ta không cần biến _viewModel riêng nữa vì BindingContext đã lo rồi
-    // Nhưng nếu bạn muốn giữ cũng không sao.
-
-    public PlayerPage(AudioViewModel audioViewModel)
+    public PlayerPage(AudioViewModel viewModel)
     {
         InitializeComponent();
+        BindingContext = viewModel;
 
-        // Gán BindingContext để giao diện nhận dữ liệu
-        BindingContext = audioViewModel;
+       
+        WeakReferenceMessenger.Default.Register<LyricScrolledMessage>(this, (r, m) =>
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (m.CurrentLine != null && LyricsCollectionView != null)
+                {
+                    // Lệnh cuộn mượt mà (animate: true) và giữ câu hát ở giữa màn hình (Center)
+                    LyricsCollectionView.ScrollTo(m.CurrentLine, position: ScrollToPosition.Center, animate: true);
+                }
+            });
+        });
+        
     }
-
-    // 👇 ĐÃ XÓA HÀM OnAppearing (Vì trang này không còn giữ Loa nữa)
-    // Trang này giờ chỉ thuần túy là giao diện điều khiển (Remote)
 }

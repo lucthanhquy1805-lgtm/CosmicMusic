@@ -22,13 +22,9 @@ namespace CosmicMusic.ViewModels
         // 1. DANH SÁCH DỮ LIỆU
         // ==========================================================
 
-        // Danh sách Playlist cá nhân (Giữ nguyên cũ)
         public ObservableCollection<Playlist> UserPlaylists { get; } = new();
-
-        // 👇 MỚI: Danh sách bài hát yêu thích
         public ObservableCollection<Song> FavoriteSongs { get; set; } = new();
 
-        // 👇 MỚI: Biến để ẩn/hiện giao diện nếu chưa có bài yêu thích nào
         [ObservableProperty]
         private bool _hasFavorites;
 
@@ -37,7 +33,6 @@ namespace CosmicMusic.ViewModels
             _firestoreService = firestoreService;
             AudioPlayer = audioViewModel;
 
-            // Đăng ký nhận tin nhắn "RefreshLibraryMessage"
             WeakReferenceMessenger.Default.Register<RefreshLibraryMessage>(this, (r, m) =>
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
@@ -48,7 +43,7 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 2. HÀM TẢI DỮ LIỆU (ĐÃ NÂNG CẤP)
+        // 2. HÀM TẢI DỮ LIỆU (ĐÃ KIỂM TRA KỸ BẢO VỆ NULL)
         // ==========================================================
         [RelayCommand]
         public async Task LoadLibrary()
@@ -67,20 +62,20 @@ namespace CosmicMusic.ViewModels
                     return;
                 }
 
-                // --- PHẦN 1: Tải Playlist (Code cũ của bạn) ---
+                // Tải Playlist
                 var playlists = await _firestoreService.GetUserPlaylists(uid);
                 UserPlaylists.Clear();
-                if (playlists.Count > 0)
+                if (playlists != null && playlists.Count > 0)
                 {
                     foreach (var p in playlists) UserPlaylists.Add(p);
                 }
 
-                // --- 👇 PHẦN 2: Tải Danh sách Yêu thích (MỚI) ---
+                // Tải Danh sách Yêu thích
                 var favSongs = await _firestoreService.GetFavoritesAsync();
                 FavoriteSongs.Clear();
-                foreach (var s in favSongs)
+                if (favSongs != null && favSongs.Count > 0)
                 {
-                    FavoriteSongs.Add(s);
+                    foreach (var s in favSongs) FavoriteSongs.Add(s);
                 }
 
                 // Cập nhật trạng thái hiển thị
@@ -88,7 +83,7 @@ namespace CosmicMusic.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"DEBUG ERROR: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"DEBUG ERROR LOAD LIBRARY: {ex.Message}");
             }
             finally
             {
@@ -97,7 +92,7 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 3. XỬ LÝ PLAYLIST (GIỮ NGUYÊN CODE CŨ)
+        // 3. XỬ LÝ PLAYLIST
         // ==========================================================
         [RelayCommand]
         public async Task TapPlaylist(Playlist playlist)
@@ -142,16 +137,14 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 4. XỬ LÝ BÀI HÁT YÊU THÍCH (MỚI THÊM)
+        // 4. XỬ LÝ BÀI HÁT YÊU THÍCH
         // ==========================================================
 
-        // 👇 Hàm phát nhạc khi chọn bài trong mục Yêu thích
         [RelayCommand]
         public async Task PlayFavoriteSong(Song song)
         {
             if (song == null) return;
 
-            // Kiểm tra VIP
             bool isUserVip = Preferences.Get("IsPremium", false);
             if (song.IsPremium == true && isUserVip == false)
             {
@@ -160,12 +153,10 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
-            // Phát nhạc với danh sách phát là FavoriteSongs
             AudioPlayer.PlaySong(song, FavoriteSongs);
             await Shell.Current.GoToAsync(nameof(PlayerPage));
         }
 
-        // 👇 Hàm mở menu tùy chọn cho bài yêu thích (Xóa khỏi tim)
         [RelayCommand]
         public async Task OpenFavoriteOptionMenu(Song song)
         {
@@ -179,11 +170,16 @@ namespace CosmicMusic.ViewModels
                 if (confirm)
                 {
                     await _firestoreService.RemoveFromFavoritesAsync(song);
-                    FavoriteSongs.Remove(song); // Xóa ngay trên giao diện
+                    FavoriteSongs.Remove(song);
                     HasFavorites = FavoriteSongs.Count > 0;
+
+                    // Giảm like đi 1
+                    song.LikeCount = Math.Max(0, song.LikeCount - 1);
+                    _ = _firestoreService.UpdateGlobalLikeCount(song, -1);
                 }
             }
         }
+
         [RelayCommand]
         public async Task OpenFavorites()
         {
@@ -193,10 +189,9 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
-            // Chuyển sang AlbumDetailPage với Type = Favorites
             var navParam = new Dictionary<string, object>
             {
-                { "Type", "Favorites" } // Từ khóa để bên kia nhận diện
+                { "Type", "Favorites" }
             };
 
             await Shell.Current.GoToAsync(nameof(AlbumDetailPage), navParam);

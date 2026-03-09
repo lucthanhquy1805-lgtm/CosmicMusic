@@ -1,41 +1,47 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.IO;
 using SQLite; // Giữ nguyên SQLite cho tính năng tải nhạc
-using System.IO; // 👇 Thêm cái này để dùng File.Exists
 
 namespace CosmicMusic.Models
 {
     public class Song
     {
-        [PrimaryKey, AutoIncrement]
-        public int Id { get; set; }
+        // 👇 ĐÃ SỬA: Đổi sang chuỗi (string) để khớp với Document ID của Firebase.
+        // Vẫn giữ [PrimaryKey] để SQLite lưu offline được.
+        [PrimaryKey]
+        public string Id { get; set; }
 
+        // --- 1. THÔNG TIN CƠ BẢN (Giữ nguyên để Giao diện không bị lỗi) ---
         public string Title { get; set; }       // Tên bài hát
-        public string Artist { get; set; }      // Ca sĩ
-        public string Album { get; set; }       // Album
+        public string Artist { get; set; }      // Tên Ca sĩ (Dùng để hiển thị UI)
+        public string Album { get; set; }       // Tên Album (Dùng để hiển thị UI)
         public string CoverImage { get; set; }  // Link ảnh bìa
-
         public string AudioUrl { get; set; }    // Link nhạc AWS S3
         public string LocalPath { get; set; }   // Đường dẫn file tải về (nếu có)
-
         public double Duration { get; set; }    // Thời lượng (giây)
-        public bool IsFavorite { get; set; }    // Yêu thích
+        public string Lyrics { get; set; } = "";// Lời bài hát
 
-        // --- CÁC TRƯỜNG QUAN TRỌNG CHO FIREBASE ---
+        // --- 2. CÁC TRƯỜNG MỚI ĐỂ LIÊN KẾT 10 COLLECTION (CHUẨN FIREBASE) ---
+        public string ArtistId { get; set; }    // Khóa ngoại nối đến bảng 'artists'
+        public string AlbumId { get; set; }     // Khóa ngoại nối đến bảng 'albums'
+        public string GenreId { get; set; }     // Khóa ngoại nối đến bảng 'genres'
+        public string GenreName { get; set; }   // Tên thể loại (Ví dụ: Rap, Pop)
 
-        public bool IsPremium { get; set; }     // Bài VIP (FirestoreService cần cái này)
-
-        // 👇 BẮT BUỘC THÊM DÒNG NÀY (Nếu không FirestoreService sẽ lỗi đỏ)
+        // --- 3. PHÂN LOẠI VÀ TƯƠNG TÁC ---
+        public bool IsPremium { get; set; }     // Bài VIP 
         public bool IsFeatured { get; set; }    // Bài nổi bật hiện Home
+        public bool IsFavorite { get; set; }    // Trạng thái yêu thích (Local)
 
-        [Ignore] // SQLite không lưu List, nên cần đánh dấu Ignore hoặc dùng Converter
+        public int LikeCount { get; set; } = 0; // Lượt thả tim
+        public int PlayCount { get; set; } = 0; // Số lượt nghe
+        public DateTime CreatedAt { get; set; } // Ngày tạo trên Firebase
+
+        // --- 4. THUỘC TÍNH BỎ QUA KHÔNG LƯU VÀO SQLITE ---
+        [Ignore]
         public List<string> SearchKeywords { get; set; } = new List<string>();
 
-        // --- Thuộc tính tính toán ---
         [Ignore]
         public bool IsDownloaded => !string.IsNullOrEmpty(LocalPath) && File.Exists(LocalPath);
-        public int LikeCount { get; set; } = 0;
-        public string Lyrics { get; set; } = "";
     }
 }

@@ -44,7 +44,9 @@ namespace CosmicMusic.Services
         public async Task<int> SaveSongAsync(Song song)
         {
             await Init();
-            if (song.Id != 0)
+
+            // Kiểm tra xem chuỗi Id có rỗng không thay vì so sánh với số 0
+            if (!string.IsNullOrEmpty(song.Id))
                 return await _database.UpdateAsync(song);
             else
                 return await _database.InsertAsync(song);

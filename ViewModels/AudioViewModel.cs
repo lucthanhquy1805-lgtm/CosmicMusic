@@ -12,19 +12,23 @@ namespace CosmicMusic.ViewModels
 {
     public class RefreshLibraryMessage { }
 
+
     public class SongPlayedMessage
     {
         public Song PlayedSong { get; set; }
         public SongPlayedMessage(Song song) => PlayedSong = song;
     }
+    public class LyricScrolledMessage
+    {
+        public LyricLine CurrentLine { get; set; }
+        public LyricScrolledMessage(LyricLine line) => CurrentLine = line;
+    }
 
     public partial class AudioViewModel : ObservableObject
     {
         private readonly FirestoreService _firestoreService;
-
-        // 👇 1. THÊM KHAI BÁO SERVICE TÌM LYRIC
         private readonly LyricsService _lyricsService;
-
+        public ObservableCollection<LyricLine> SyncedLyrics { get; set; } = new();
         private MediaElement _mediaElement;
         private bool _isDraggingSlider = false;
 
@@ -33,40 +37,27 @@ namespace CosmicMusic.ViewModels
         public AudioViewModel(FirestoreService firestoreService)
         {
             _firestoreService = firestoreService;
-
-            // 👇 2. KHỞI TẠO SERVICE
             _lyricsService = new LyricsService();
 
             FavoriteColor = "#A569F7";
             IsFavorite = false;
         }
+        private bool _isLrcLyrics = false;
 
         // ==========================================================
-        // CÁC THUỘC TÍNH (GIỮ NGUYÊN)
+        // CÁC THUỘC TÍNH (GIỮ NGUYÊN CỦA BẠN)
         // ==========================================================
-
         [ObservableProperty] private Song _currentSong;
         [ObservableProperty] private bool _isPlaying;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(TotalDurationText))]
-        private TimeSpan _duration;
-
+        [ObservableProperty][NotifyPropertyChangedFor(nameof(TotalDurationText))] private TimeSpan _duration;
         [ObservableProperty] private bool _isRepeat;
-
         public string TotalDurationText => $"{Duration:mm\\:ss}";
-
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(CurrentPositionText))]
-        private TimeSpan _currentPosition;
+        [ObservableProperty][NotifyPropertyChangedFor(nameof(CurrentPositionText))] private TimeSpan _currentPosition;
         public string CurrentPositionText => $"{CurrentPosition:mm\\:ss}";
-
         [ObservableProperty] private double _volume = 1.0;
 
         [ObservableProperty] private bool _isFavorite;
         [ObservableProperty] private string _favoriteColor;
-
-        // Biến điều khiển hiển thị Lyric
         [ObservableProperty] private bool _isLyricsVisible = false;
 
         public double CurrentPositionSeconds
@@ -86,10 +77,7 @@ namespace CosmicMusic.ViewModels
         public string RepeatColor => RepeatMode == 0 ? "#FFFFFF" : "#D946EF";
         public string RepeatIcon => RepeatMode == 1 ? "🔂" : "🔁";
 
-        partial void OnRepeatModeChanged(int value)
-        {
-            IsRepeat = value > 0;
-        }
+        partial void OnRepeatModeChanged(int value) => IsRepeat = value > 0;
 
         // ==========================================================
         // MEDIA ELEMENT (GIỮ NGUYÊN)
@@ -122,14 +110,10 @@ namespace CosmicMusic.ViewModels
                     _mediaElement.Source = MediaSource.FromUri(CurrentSong.AudioUrl);
 
                     if (CurrentPosition.TotalSeconds > 0)
-                    {
                         _mediaElement.SeekTo(CurrentPosition);
-                    }
 
                     if (IsPlaying)
-                    {
                         _mediaElement.Play();
-                    }
                 }
             }
         }
@@ -144,6 +128,7 @@ namespace CosmicMusic.ViewModels
             if (_isDraggingSlider) return;
             CurrentPosition = e.Position;
             OnPropertyChanged(nameof(CurrentPositionSeconds));
+            SyncLyricWithTime(e.Position);
 
             if (_mediaElement != null && _mediaElement.Duration > TimeSpan.Zero && Duration != _mediaElement.Duration)
             {
@@ -151,13 +136,11 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        private void OnMediaEnded(object sender, EventArgs e)
-        {
-            Next();
-        }
+        private void OnMediaEnded(object sender, EventArgs e) => Next();
 
+       
         // ==========================================================
-        // 4. HÀM PHÁT NHẠC (ĐÃ BỔ SUNG LOGIC TÌM LYRIC)
+        // 4. HÀM PHÁT NHẠC (ĐÃ FIX LỖI LOAD LYRIC CÓ SẴN)
         // ==========================================================
         public void PlaySong(Song song, ObservableCollection<Song>? contextList = null)
         {
@@ -170,182 +153,217 @@ namespace CosmicMusic.ViewModels
             {
                 bool needUpdate = Playlist.Count != contextList.Count;
                 if (!needUpdate && Playlist.Count > 0 && Playlist[0].Title != contextList[0].Title) needUpdate = true;
-
                 if (needUpdate) { Playlist.Clear(); foreach (var item in contextList) Playlist.Add(item); }
             }
             else if (!Playlist.Contains(song)) { Playlist.Add(song); }
 
-            // --- RESET TRẠNG THÁI ---
             CurrentPosition = TimeSpan.Zero;
             CurrentPositionSeconds = 0;
-            if (song.Duration > 0) Duration = TimeSpan.FromSeconds(song.Duration);
-            else Duration = TimeSpan.Zero;
+            Duration = song.Duration > 0 ? TimeSpan.FromSeconds(song.Duration) : TimeSpan.Zero;
 
+            // Reset Tim
             IsFavorite = false;
             FavoriteColor = "#A569F7";
             CurrentSong = song;
 
-            // --- PHÁT NHẠC ---
             if (_mediaElement != null)
             {
                 IsPlaying = true;
-                if (!isSameSong)
-                {
-                    _mediaElement.Source = MediaSource.FromUri(song.AudioUrl);
-                }
+                if (!isSameSong) _mediaElement.Source = MediaSource.FromUri(song.AudioUrl);
                 _mediaElement.Play();
                 WeakReferenceMessenger.Default.Send(new SongPlayedMessage(song));
             }
 
-            // 👇👇👇 3. BỔ SUNG: LOGIC TỰ ĐỘNG TÌM LỜI BÀI HÁT 👇👇👇
+            // 👇👇 BỔ SUNG QUAN TRỌNG: Nếu bài hát ĐÃ CÓ SẴN LỜI (Từ Firebase), thì nạp vào Karaoke luôn!
+            if (!string.IsNullOrEmpty(CurrentSong.Lyrics))
+            {
+                ParseLrcLyrics(CurrentSong.Lyrics);
+            }
+
+            // Tìm Lyric (Nếu bài hát CHƯA CÓ LỜI)
+            // CƠ CHẾ TÌM LYRIC THÔNG MINH MỚI
             if (string.IsNullOrEmpty(CurrentSong.Lyrics))
             {
-                // Báo đang tìm
                 CurrentSong.Lyrics = "Đang tìm lời bài hát... ⏳";
                 OnPropertyChanged(nameof(CurrentSong));
 
-                // Chạy ngầm đi tìm
                 Task.Run(async () =>
                 {
-                    string foundLyrics = await _lyricsService.GetLyricsAsync(CurrentSong.Title, CurrentSong.Artist);
-                  
-                    
-                    if (!string.IsNullOrEmpty(foundLyrics))
+                    // 1. ƯU TIÊN 1: Tìm trong Firebase xem có bản LRC nào xịn do User lưu không
+                    string dbLyrics = await _firestoreService.GetLyricsFromDatabaseAsync(CurrentSong.Id);
+
+                    if (!string.IsNullOrEmpty(dbLyrics))
                     {
-                        CurrentSong.Lyrics = foundLyrics;
-                        _ = Task.Run(() => _firestoreService.UpdateSongLyricsAsync(CurrentSong));
-                        // Nếu muốn lưu lại vào DB thì gọi FirestoreService ở đây
+                        // Nếu có, nạp ngay vào màn hình
+                        CurrentSong.Lyrics = dbLyrics;
+                        ParseLrcLyrics(dbLyrics);
                     }
                     else
                     {
-                        CurrentSong.Lyrics = "Chưa tìm thấy lời bài hát 😔";
+                        // 2. NẾU TRỐNG: Mới cầu cứu API mạng
+                        string foundLyrics = await _lyricsService.GetLyricsAsync(CurrentSong.Title, CurrentSong.Artist);
+                        if (!string.IsNullOrEmpty(foundLyrics))
+                        {
+                            CurrentSong.Lyrics = foundLyrics;
+                            ParseLrcLyrics(foundLyrics);
+
+                            // CHỈ LƯU TỰ ĐỘNG NẾU DATABASE TRỐNG HOÀN TOÀN
+                            _ = Task.Run(() => _firestoreService.UpdateSongLyricsAsync(CurrentSong));
+                        }
+                        else
+                        {
+                            CurrentSong.Lyrics = "Chưa tìm thấy lời bài hát 😔";
+                            MainThread.BeginInvokeOnMainThread(() => SyncedLyrics.Clear());
+                        }
                     }
-                    // Cập nhật giao diện
                     OnPropertyChanged(nameof(CurrentSong));
                 });
             }
-            // 👆👆👆 HẾT PHẦN BỔ SUNG 👆👆👆
 
-            // --- CHECK TIM TRÊN SERVER (GIỮ NGUYÊN) ---
+            // Check Tim từ ROOT Collection Favorites
             Task.Run(async () =>
             {
                 try
                 {
-                    string uid = Preferences.Get("UserId", "");
-                    if (!string.IsNullOrEmpty(uid))
+                    bool isLiked = await _firestoreService.IsSongInFavoritesAsync(song);
+                    if (isLiked)
                     {
-                        bool isLiked = await _firestoreService.IsSongInUserLibrary(uid, song);
-
-                        if (isLiked)
+                        MainThread.BeginInvokeOnMainThread(() =>
                         {
-                            MainThread.BeginInvokeOnMainThread(() =>
+                            if (CurrentSong != null && CurrentSong.Title == song.Title)
                             {
-                                if (CurrentSong != null && CurrentSong.Title == song.Title)
-                                {
-                                    IsFavorite = true;
-                                    FavoriteColor = "Red";
-                                }
-                            });
-                        }
+                                IsFavorite = true;
+                                FavoriteColor = "Red";
+                            }
+                        });
                     }
                 }
                 catch { }
             });
         }
-        // ... (Các code cũ) ...
 
-        // 👇👇👇 1. BIẾN ĐIỀU KHIỂN CHẾ ĐỘ SỬA LYRIC 👇👇👇
-        [ObservableProperty]
-        private bool _isEditingLyrics = false; // Mặc định là False (Chế độ xem)
+        // ==========================================================
+        // 👇👇 5. ĐÃ SỬA: LOGIC NÚT THẢ TIM HOÀN TOÀN MỚI 👇👇
+        // ==========================================================
+        [RelayCommand]
+        public async Task ToggleFavorite()
+        {
+            if (CurrentSong == null) return;
+            string uid = Preferences.Get("UserId", "");
+            if (string.IsNullOrEmpty(uid))
+            {
+                await Shell.Current.DisplayAlert("Yêu cầu", "Vui lòng đăng nhập!", "OK");
+                return;
+            }
 
-        // 👇👇👇 2. LỆNH BẬT/TẮT CHẾ ĐỘ SỬA 👇👇👇
+            // 1. Giao diện thay đổi ngay lập tức để người dùng không phải chờ
+            IsFavorite = !IsFavorite;
+            FavoriteColor = IsFavorite ? "Red" : "#A569F7";
+
+            try
+            {
+                if (IsFavorite)
+                {
+                    // LƯU VÀO YÊU THÍCH (Root Collection)
+                    await _firestoreService.AddToFavoritesAsync(CurrentSong);
+
+                    // Tăng Like Global
+                    CurrentSong.LikeCount++;
+                    _ = _firestoreService.UpdateGlobalLikeCount(CurrentSong, 1);
+                }
+                else
+                {
+                    // XÓA KHỎI YÊU THÍCH
+                    await _firestoreService.RemoveFromFavoritesAsync(CurrentSong);
+
+                    // Giảm Like Global
+                    CurrentSong.LikeCount = Math.Max(0, CurrentSong.LikeCount - 1);
+                    _ = _firestoreService.UpdateGlobalLikeCount(CurrentSong, -1);
+                }
+
+                // Gửi thông báo để trang Library tự động tải lại
+                WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
+            }
+            catch (Exception ex)
+            {
+                // Nếu lỗi, trả lại giao diện như cũ
+                IsFavorite = !IsFavorite;
+                FavoriteColor = IsFavorite ? "Red" : "#A569F7";
+                System.Diagnostics.Debug.WriteLine($"Lỗi Thả Tim: {ex.Message}");
+            }
+        }
+
+        // Các lệnh khác giữ nguyên...
+        [ObservableProperty] private bool _isEditingLyrics = false;
+        [ObservableProperty] private string _editLyricsText;
         [RelayCommand]
         public void ToggleEditLyrics()
         {
             IsEditingLyrics = !IsEditingLyrics;
+            if (IsEditingLyrics) EditLyricsText = CurrentSong?.Lyrics; // Mở lên thì nạp chữ cũ vào
         }
-
-        // 👇👇👇 3. LỆNH LƯU LYRIC SAU KHI SỬA 👇👇👇
         [RelayCommand]
         public async Task SaveLyrics()
         {
             if (CurrentSong == null) return;
-
-            // Tắt chế độ sửa, quay về chế độ xem
             IsEditingLyrics = false;
 
-            // Gửi dữ liệu mới lên Firebase
-            await _firestoreService.UpdateSongLyricsAsync(CurrentSong);
+            // Ép nhận chữ mới nhất từ giao diện
+            CurrentSong.Lyrics = EditLyricsText;
 
-            // Thông báo nhẹ cho người dùng vui
-            await Shell.Current.DisplayAlert("Thành công", "Đã cập nhật lời bài hát! 💖", "OK");
+            // Dùng Dispatcher để đảm bảo UI thực sự "vẽ" lại chữ mới ngay lập tức
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                ParseLrcLyrics(CurrentSong.Lyrics);
 
-            OnPropertyChanged(nameof(CurrentSong));
+                // Mẹo nhỏ: Báo cho UI biết là biến CurrentSong đã thay đổi hoàn toàn
+                var tempSong = CurrentSong;
+                CurrentSong = null;
+                CurrentSong = tempSong;
+            });
+
+            // Gửi lên Firebase
+            bool success = await _firestoreService.UpdateSongLyricsAsync(CurrentSong);
+            if (success)
+                await Shell.Current.DisplayAlert("Thành công", "Đã cập nhật lời bài hát! 💖", "OK");
+            else
+                await Shell.Current.DisplayAlert("Lỗi", "Không thể lưu. Vui lòng thử lại!", "OK");
         }
-        // ==========================================================
-        // CÁC NÚT ĐIỀU KHIỂN (GIỮ NGUYÊN)
-        // ==========================================================
 
-        [RelayCommand]
-        public void PlayPause()
-        {
-            if (_mediaElement == null) return;
-            if (IsPlaying) { _mediaElement.Pause(); IsPlaying = false; }
-            else { _mediaElement.Play(); IsPlaying = true; }
-        }
-
+        [RelayCommand] public void PlayPause() { if (_mediaElement == null) return; if (IsPlaying) { _mediaElement.Pause(); IsPlaying = false; } else { _mediaElement.Play(); IsPlaying = true; } }
         [RelayCommand] public void DragStarted() => _isDraggingSlider = true;
-
         [RelayCommand]
         public async Task DragCompleted()
         {
-            if (_mediaElement != null) await _mediaElement.SeekTo(CurrentPosition);
-            await Task.Delay(100);
+            if (_mediaElement != null)
+            {
+                await _mediaElement.SeekTo(CurrentPosition);
+                await Task.Delay(200); // Chờ nhạc load 1 nhịp để bắt time cho chuẩn
+            }
             _isDraggingSlider = false;
+            SyncLyricWithTime(CurrentPosition); // Bắt lại đúng câu hát đó
         }
-
         [RelayCommand] public void ToggleShuffle() => IsShuffle = !IsShuffle;
-
-        [RelayCommand]
-        public void ToggleRepeat()
-        {
-            RepeatMode = (RepeatMode + 1) % 3;
-        }
-
+        [RelayCommand] public void ToggleRepeat() => RepeatMode = (RepeatMode + 1) % 3;
         [RelayCommand] public async Task GoBack() => await Shell.Current.GoToAsync("..");
 
         [RelayCommand]
         public void Next()
         {
             if (CurrentSong == null || Playlist.Count == 0) return;
-
-            if (RepeatMode == 1 && _mediaElement != null)
-            {
-                _mediaElement.SeekTo(TimeSpan.Zero);
-                _mediaElement.Play();
-                return;
-            }
+            if (RepeatMode == 1 && _mediaElement != null) { _mediaElement.SeekTo(TimeSpan.Zero); _mediaElement.Play(); return; }
 
             int index = -1;
             for (int i = 0; i < Playlist.Count; i++)
-            {
-                if (Playlist[i].Title == CurrentSong.Title && Playlist[i].Artist == CurrentSong.Artist)
-                {
-                    index = i; break;
-                }
-            }
+                if (Playlist[i].Title == CurrentSong.Title && Playlist[i].Artist == CurrentSong.Artist) { index = i; break; }
 
             if (index == -1) { PlaySong(Playlist[0]); return; }
-
             if (IsShuffle && Playlist.Count > 1)
             {
-                var r = new Random();
-                int nextIndex;
+                var r = new Random(); int nextIndex;
                 do { nextIndex = r.Next(Playlist.Count); } while (nextIndex == index);
-                PlaySong(Playlist[nextIndex]);
-                return;
+                PlaySong(Playlist[nextIndex]); return;
             }
-
             if (index < Playlist.Count - 1) PlaySong(Playlist[index + 1]);
             else PlaySong(Playlist[0]);
         }
@@ -354,52 +372,56 @@ namespace CosmicMusic.ViewModels
         public void Previous()
         {
             if (CurrentSong == null || Playlist.Count == 0) return;
-
-            if (CurrentPosition.TotalSeconds > 3 && _mediaElement != null)
-            {
-                _mediaElement.SeekTo(TimeSpan.Zero);
-                return;
-            }
+            if (CurrentPosition.TotalSeconds > 3 && _mediaElement != null) { _mediaElement.SeekTo(TimeSpan.Zero); return; }
 
             int index = -1;
             for (int i = 0; i < Playlist.Count; i++)
-            {
-                if (Playlist[i].Title == CurrentSong.Title && Playlist[i].Artist == CurrentSong.Artist)
-                {
-                    index = i; break;
-                }
-            }
+                if (Playlist[i].Title == CurrentSong.Title && Playlist[i].Artist == CurrentSong.Artist) { index = i; break; }
 
             if (index > 0) PlaySong(Playlist[index - 1]);
             else PlaySong(Playlist[Playlist.Count - 1]);
         }
 
-        // Logic ToggleFavorite cũ của bạn (Giữ nguyên)
+        public void Cleanup()
+        {
+            if (_mediaElement != null) { _mediaElement.Stop(); _mediaElement.Source = null; }
+            IsPlaying = false; CurrentSong = null; Playlist.Clear();
+            CurrentPosition = TimeSpan.Zero; Duration = TimeSpan.Zero;
+        }
+
+        [RelayCommand] public void ToggleLyrics() => IsLyricsVisible = !IsLyricsVisible;
+        // ==========================================================
+        // TÍNH NĂNG THÊM VÀO PLAYLIST CÁ NHÂN
+        // ==========================================================
         [RelayCommand]
-        public async Task ToggleFavorite()
+        public async Task AddToPlaylist()
         {
             if (CurrentSong == null) return;
             string uid = Preferences.Get("UserId", "");
-            if (string.IsNullOrEmpty(uid)) { await Shell.Current.DisplayAlert("Yêu cầu", "Vui lòng đăng nhập!", "OK"); return; }
+            if (string.IsNullOrEmpty(uid))
+            {
+                await Shell.Current.DisplayAlert("Yêu cầu", "Vui lòng đăng nhập!", "OK");
+                return;
+            }
 
-            if (IsFavorite) { await Shell.Current.DisplayAlert("Thông báo", "Đã có trong thư viện.", "OK"); return; }
-
-            string action = await Shell.Current.DisplayActionSheet("Thêm vào thư viện", "Hủy", null, "Thêm vào Playlist có sẵn", "Tạo Playlist mới");
-
-            bool addedSuccess = false;
+            // Hiện menu chọn
+            string action = await Shell.Current.DisplayActionSheet("Lưu bài hát", "Hủy", null, "Thêm vào Playlist có sẵn", "Tạo Playlist mới");
 
             if (action == "Tạo Playlist mới")
             {
-                string name = await Shell.Current.DisplayPromptAsync("Tạo Mới", "Tên Playlist:");
+                string name = await Shell.Current.DisplayPromptAsync("Tạo Mới", "Nhập tên Playlist:");
                 if (!string.IsNullOrEmpty(name))
                 {
                     await _firestoreService.CreatePlaylistAndAddSong(uid, name, CurrentSong);
-                    addedSuccess = true;
-                    await Shell.Current.DisplayAlert("Thành công", $"Đã tạo '{name}'", "OK");
+                    await Shell.Current.DisplayAlert("Thành công", $"Đã tạo và thêm vào '{name}'", "OK");
+
+                    // Báo cho trang Library load lại
+                    WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
                 }
             }
             else if (action == "Thêm vào Playlist có sẵn")
             {
+                // Gọi Firebase lấy danh sách list của User
                 var playlists = await _firestoreService.GetUserPlaylists(uid);
                 if (playlists != null && playlists.Count > 0)
                 {
@@ -411,42 +433,108 @@ namespace CosmicMusic.ViewModels
                         if (p != null)
                         {
                             await _firestoreService.AddSongToExistingPlaylist(p.Id, CurrentSong);
-                            addedSuccess = true;
                             await Shell.Current.DisplayAlert("Thành công", $"Đã thêm vào '{sel}'", "OK");
+                            WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
                         }
                     }
                 }
-                else await Shell.Current.DisplayAlert("Thông báo", "Chưa có playlist nào.", "OK");
-            }
-
-            if (addedSuccess)
-            {
-                IsFavorite = true;
-                FavoriteColor = "Red";
-                WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
+                else
+                {
+                    await Shell.Current.DisplayAlert("Thông báo", "Chưa có playlist nào. Hãy tạo mới!", "OK");
+                }
             }
         }
-
-        public void Cleanup()
+        // ==========================================================
+        // XỬ LÝ LYRIC CHẠY THEO THỜI GIAN (KARAOKE)
+        // ==========================================================
+        private void ParseLrcLyrics(string rawLyrics)
         {
-            if (_mediaElement != null)
+            MainThread.BeginInvokeOnMainThread(() => SyncedLyrics.Clear());
+            if (string.IsNullOrEmpty(rawLyrics)) return;
+
+            var parsedLyrics = new List<LyricLine>();
+            _isLrcLyrics = false; // Mặc định là chữ thường
+
+            // 👇 CHUẨN HÓA THÔNG MINH: Xuống dòng trước dấu '[' để trị lỗi dính chữ từ Firebase,
+            // nhưng VẪN GIỮ NGUYÊN các dấu xuống dòng của bài hát chữ thường.
+            string normalizedLyrics = rawLyrics.Replace("[", "\n[");
+            var lines = normalizedLyrics.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var line in lines)
             {
-                _mediaElement.Stop();
-                _mediaElement.Source = null;
+                var trimLine = line.Trim();
+                if (string.IsNullOrEmpty(trimLine)) continue;
+
+                int startBracket = trimLine.IndexOf('[');
+                int endBracket = trimLine.IndexOf(']');
+
+                // Nếu có dấu thời gian
+                if (startBracket >= 0 && endBracket > startBracket)
+                {
+                    string timeStr = trimLine.Substring(startBracket + 1, endBracket - startBracket - 1);
+                    string textStr = trimLine.Substring(endBracket + 1).Trim();
+
+                    var timeParts = timeStr.Split(':');
+                    if (timeParts.Length >= 2 &&
+                        double.TryParse(timeParts[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double min) &&
+                        double.TryParse(timeParts[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double sec))
+                    {
+                        parsedLyrics.Add(new LyricLine { Time = TimeSpan.FromSeconds(min * 60 + sec), Text = textStr, IsCurrent = false });
+                        _isLrcLyrics = true; // Bật cờ hiệu: Đây là nhạc Karaoke!
+                    }
+                    else
+                    {
+                        parsedLyrics.Add(new LyricLine { Time = TimeSpan.Zero, Text = trimLine, IsCurrent = false });
+                    }
+                }
+                else // Dòng chữ thường
+                {
+                    parsedLyrics.Add(new LyricLine { Time = TimeSpan.Zero, Text = trimLine, IsCurrent = false });
+                }
             }
 
-            IsPlaying = false;
-            CurrentSong = null;
-            Playlist.Clear();
-            CurrentPosition = TimeSpan.Zero;
-            Duration = TimeSpan.Zero;
+            // 👇 NẾU LÀ KARAOKE thì sắp xếp thời gian. NẾU LÀ CHỮ THƯỜNG thì giữ nguyên gốc của văn bản
+            if (_isLrcLyrics)
+            {
+                parsedLyrics = parsedLyrics.OrderBy(x => x.Time).ToList();
+            }
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                foreach (var item in parsedLyrics) SyncedLyrics.Add(item);
+
+                // MẸO: Ngay khi load xong chữ, lập tức gửi thư báo giao diện kéo lên DÒNG ĐẦU TIÊN
+                if (parsedLyrics.Count > 0)
+                {
+                    WeakReferenceMessenger.Default.Send(new LyricScrolledMessage(parsedLyrics[0]));
+                }
+            });
         }
 
-        // Lệnh Bật/Tắt Lyric
-        [RelayCommand]
-        public void ToggleLyrics()
+        private void SyncLyricWithTime(TimeSpan currentPosition)
         {
-            IsLyricsVisible = !IsLyricsVisible;
+            // 👇 CHỐNG LỖI: Nếu là bài hát chữ thường thì TỪ CHỐI cuộn màn hình và bôi trắng
+            if (!_isLrcLyrics || SyncedLyrics.Count == 0) return;
+
+            for (int i = 0; i < SyncedLyrics.Count; i++)
+            {
+                bool shouldBeCurrent = currentPosition >= SyncedLyrics[i].Time &&
+                                       (i == SyncedLyrics.Count - 1 || currentPosition < SyncedLyrics[i + 1].Time);
+
+                if (SyncedLyrics[i].IsCurrent != shouldBeCurrent)
+                {
+                    SyncedLyrics[i].IsCurrent = shouldBeCurrent;
+
+                    if (shouldBeCurrent)
+                    {
+                        WeakReferenceMessenger.Default.Send(new LyricScrolledMessage(SyncedLyrics[i]));
+                    }
+                }
+            }
         }
+
+
+
     }
+
 }

@@ -31,7 +31,7 @@ public static class MauiProgram
         // =================================================================
         builder.Services.AddSingleton<FirestoreService>();
         builder.Services.AddSingleton<DatabaseService>();
-        builder.Services.AddSingleton<MusicApiService>();
+        //builder.Services.AddSingleton<MusicApiService>();
 
         // AudioViewModel phải là Singleton
         builder.Services.AddSingleton<AudioViewModel>();
