@@ -12,12 +12,14 @@ namespace CosmicMusic
             Routing.RegisterRoute(nameof(PlayerPage), typeof(PlayerPage));
             Routing.RegisterRoute(nameof(SearchPage), typeof(SearchPage));
             Routing.RegisterRoute(nameof(AlbumDetailPage), typeof(AlbumDetailPage));
+            Routing.RegisterRoute(nameof(GenreDetailPage), typeof(GenreDetailPage));
             Routing.RegisterRoute(nameof(RegisterPage), typeof(RegisterPage));
             Routing.RegisterRoute(nameof(PremiumPage), typeof(PremiumPage));
             Routing.RegisterRoute(nameof(ProfilePage), typeof(ProfilePage));
             Routing.RegisterRoute(nameof(EditProfilePage), typeof(EditProfilePage));
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(ChangePasswordPage), typeof(ChangePasswordPage));
+           
         }
 
         

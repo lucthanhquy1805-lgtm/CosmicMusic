@@ -985,7 +985,215 @@ namespace CosmicMusic.Services
             catch { }
             return null;
         }
+        // ==========================================================
+        // LẤY DANH SÁCH BÀI HÁT THEO THỂ LOẠI (DÙNG CHO TRANG GENRE DETAIL)
+        // ==========================================================
+        
+        public async Task<List<Song>> GetSongsByGenreAsync(string targetGenreId)
+        {
+            var resultList = new List<Song>();
+            if (string.IsNullOrWhiteSpace(targetGenreId)) return resultList;
 
+            string url = $"{_baseUrl}/songs";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                    if (doc.RootElement.TryGetProperty("documents", out var docs))
+                    {
+                        foreach (var d in docs.EnumerateArray())
+                        {
+                            if (d.TryGetProperty("fields", out var fields))
+                            {
+                                string dbGenreId = "";
+                                // 👇 Đọc đúng trường genreId từ Firebase của bạn 👇
+                                if (fields.TryGetProperty("genreId", out var g)) dbGenreId = g.GetProperty("stringValue").GetString();
+
+                                // 👇 So sánh chính xác genreId 👇
+                                if (string.Equals(dbGenreId, targetGenreId, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var s = new Song();
+                                    s.Id = d.GetProperty("name").GetString().Split('/').Last();
+
+                                    if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("audioUrl", out var au)) s.AudioUrl = au.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("coverImage", out var cImg)) s.CoverImage = cImg.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("album", out var al)) s.Album = al.GetProperty("stringValue").GetString();
+
+                                    if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var durVal))
+                                        s.Duration = durVal.ValueKind == JsonValueKind.String ? double.Parse(durVal.GetString()) : durVal.GetDouble();
+
+                                    if (fields.TryGetProperty("isPremium", out var prem) && prem.TryGetProperty("booleanValue", out var pVal))
+                                        s.IsPremium = pVal.GetBoolean();
+
+                                    resultList.Add(s);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy thể loại: {ex.Message}"); }
+
+            return resultList;
+        }
+        // ==========================================================
+        // [COLLECTION 9/10]: NGHE GẦN ĐÂY (RECENTLY PLAYED)
+        // ==========================================================
+        public async Task AddToRecentlyPlayedAsync(string userId, Song song)
+        {
+            if (string.IsNullOrEmpty(userId) || song == null || string.IsNullOrEmpty(song.Id)) return;
+
+            try
+            {
+                // Tạo ID duy nhất ghép từ User và Song để tránh trùng lặp
+                string docId = $"{userId}_{song.Id}";
+                string patchUrl = $"{_baseUrl}/recently_played/{docId}";
+
+                var payload = new
+                {
+                    fields = new
+                    {
+                        userId = new { stringValue = userId },
+                        songId = new { stringValue = song.Id },
+                        title = new { stringValue = song.Title ?? "" },
+                        artist = new { stringValue = song.Artist ?? "" },
+                        coverImage = new { stringValue = song.CoverImage ?? "" },
+                        audioUrl = new { stringValue = song.AudioUrl ?? "" },
+                        isPremium = new { booleanValue = song.IsPremium },
+                        // Lưu thời gian hiện tại để biết bài nào nghe mới nhất
+                        playedAt = new { timestampValue = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ") }
+                    }
+                };
+
+                var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                await _httpClient.PatchAsync(patchUrl, content);
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi thêm Recently Played: {ex.Message}"); }
+        }
+
+        public async Task<List<Song>> GetRecentlyPlayedAsync(string userId)
+        {
+            var list = new List<Song>();
+            if (string.IsNullOrEmpty(userId)) return list;
+
+            // Dùng query API của Firebase để lấy tất cả bài hát thuộc về userId này
+            string queryUrl = $"https://firestore.googleapis.com/v1/projects/cosmicmusic-50df6/databases/(default)/documents:runQuery";
+
+            var queryPayload = new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "recently_played" } },
+                    where = new
+                    {
+                        fieldFilter = new
+                        {
+                            field = new { fieldPath = "userId" },
+                            op = "EQUAL",
+                            value = new { stringValue = userId }
+                        }
+                    }
+                }
+            };
+
+            try
+            {
+                var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(queryPayload), System.Text.Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(queryUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                    var tempSongs = new List<(Song song, DateTime playedAt)>();
+
+                    foreach (var element in doc.RootElement.EnumerateArray())
+                    {
+                        if (element.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
+                        {
+                            var s = new Song();
+                            if (fields.TryGetProperty("songId", out var idVal)) s.Id = idVal.GetProperty("stringValue").GetString();
+                            if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                            if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                            if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+                            if (fields.TryGetProperty("audioUrl", out var au)) s.AudioUrl = au.GetProperty("stringValue").GetString();
+                            if (fields.TryGetProperty("isPremium", out var prem) && prem.TryGetProperty("booleanValue", out var pVal)) s.IsPremium = pVal.GetBoolean();
+
+                            DateTime playedAt = DateTime.MinValue;
+                            if (fields.TryGetProperty("playedAt", out var p) && p.ValueKind != System.Text.Json.JsonValueKind.Null)
+                            {
+                                DateTime.TryParse(p.GetProperty("timestampValue").GetString(), out playedAt);
+                            }
+                            tempSongs.Add((s, playedAt));
+                        }
+                    }
+
+                    // Sắp xếp bài hát mới nghe lên đầu tiên (giảm dần theo thời gian)
+                    list = tempSongs.OrderByDescending(x => x.playedAt).Select(x => x.song).ToList();
+                }
+            }
+            catch { }
+            return list;
+        }
+        // ==========================================================
+        // [COLLECTION 10/10]: CÁC GÓI PREMIUM (SUBSCRIPTIONS)
+        // ==========================================================
+        public async Task<List<Subscription>> GetSubscriptionsAsync()
+        {
+            var list = new List<Subscription>();
+            string url = $"{_baseUrl}/subscriptions";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                    if (doc.RootElement.TryGetProperty("documents", out var docs))
+                    {
+                        foreach (var d in docs.EnumerateArray())
+                        {
+                            if (d.TryGetProperty("fields", out var fields))
+                            {
+                                var sub = new Subscription();
+                                sub.Id = d.GetProperty("name").GetString().Split('/').Last();
+
+                                if (fields.TryGetProperty("name", out var n)) sub.Name = n.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("price", out var p)) sub.Price = p.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("description", out var desc)) sub.Description = desc.GetProperty("stringValue").GetString();
+                                if (fields.TryGetProperty("backgroundColor", out var bg)) sub.BackgroundColor = bg.GetProperty("stringValue").GetString();
+
+                                if (fields.TryGetProperty("durationInMonths", out var dur))
+                                    sub.DurationInMonths = int.Parse(dur.GetProperty("integerValue").GetString());
+
+                                // Đọc mảng các quyền lợi (Features)
+                                if (fields.TryGetProperty("features", out var f) && f.TryGetProperty("arrayValue", out var arr) && arr.TryGetProperty("values", out var vals))
+                                {
+                                    foreach (var val in vals.EnumerateArray())
+                                    {
+                                        sub.Features.Add(val.GetProperty("stringValue").GetString());
+                                    }
+                                }
+                                list.Add(sub);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy gói Premium: {ex.Message}"); }
+
+            return list;
+        }
     }
 
 

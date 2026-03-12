@@ -20,7 +20,6 @@
         <ResourceDictionary>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
-            <toolkit:BoolToObjectConverter x:Key="BoolToVisibleConverter" TrueObject="True" FalseObject="False"/>
             <Color x:Key="CosmicPink">#D946EF</Color>
 
             <x:String x:Key="IconPrevious">M6,6H8V18H6M9.5,12L18,18V6</x:String>
@@ -79,131 +78,134 @@
         </Border>
 
         <Grid Grid.Row="2">
-            <CollectionView IsVisible="{Binding IsExploring}" 
-                ItemsSource="{Binding BrowseCategories}"
-                Margin="20,0,20,90">
 
-                <CollectionView.Header>
-                    <Label Text="Top Genres" FontFamily="MontserratBold" FontSize="18" TextColor="White" Margin="0,0,0,15"/>
-                </CollectionView.Header>
+            <Grid IsVisible="{Binding IsExploring}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <CollectionView.ItemsLayout>
-                    <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="15" VerticalItemSpacing="15"/>
-                </CollectionView.ItemsLayout>
+                <Label Grid.Row="0" Text="Top Genres" FontFamily="MontserratBold" FontSize="18" TextColor="White" Margin="20,0,20,15"/>
 
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="viewmodels:BrowseCategory">
-                        <Border HeightRequest="100" StrokeShape="RoundRectangle 10" StrokeThickness="0" BackgroundColor="Transparent">
-                            <Grid>
-                                <BoxView>
-                                    <BoxView.Background>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                            <GradientStop Color="{Binding StartColor}" Offset="0.0"/>
-                                            <GradientStop Color="{Binding EndColor}" Offset="1.0"/>
-                                        </LinearGradientBrush>
-                                    </BoxView.Background>
-                                </BoxView>
-                                <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="16" TextColor="White" Margin="12" HorizontalOptions="Start" VerticalOptions="End"/>
-                                <Label Text="{Binding Icon}" FontSize="50" HorizontalOptions="End" VerticalOptions="End" Rotation="25" TranslationX="15" TranslationY="5" Opacity="0.9"/>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+                <CollectionView Grid.Row="1" ItemsSource="{Binding BrowseCategories}" Margin="20,0,20,90">
+                    <CollectionView.ItemsLayout>
+                        <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="15" VerticalItemSpacing="15"/>
+                    </CollectionView.ItemsLayout>
 
-            <ActivityIndicator IsRunning="{Binding IsLoading}" 
-                               IsVisible="{Binding IsLoading}"
-                               Color="{StaticResource CosmicPink}"
-                               VerticalOptions="Start"
-                               HorizontalOptions="Center"
-                               Margin="0,20,0,0"/>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="viewmodels:BrowseCategory">
+                            <Border HeightRequest="100" StrokeShape="RoundRectangle 10" StrokeThickness="0" BackgroundColor="Transparent">
 
-            <CollectionView IsVisible="{Binding IsExploring, Converter={StaticResource InvertedBoolConverter}}"
-                            ItemsSource="{Binding SearchResults}"
-                            SelectionMode="None"
-                            Margin="0,0,0,90">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:SearchViewModel}}, Path=SelectCategoryCommand}" CommandParameter="{Binding .}"/>
+                                </Border.GestureRecognizers>
 
-                <CollectionView.EmptyView>
-                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10">
-                        <Label Text="🔍" FontSize="40" HorizontalOptions="Center" TextColor="#666"/>
-                        <Label Text="No songs found" FontSize="16" TextColor="#888" FontFamily="MontserratRegular"/>
-                    </VerticalStackLayout>
-                </CollectionView.EmptyView>
-
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:Song">
-                        <Grid Padding="20,10" ColumnDefinitions="55, *, 40">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:SearchViewModel}}, Path=SelectSongCommand}" CommandParameter="{Binding .}"/>
-                            </Grid.GestureRecognizers>
-
-                            <Border Grid.Column="0" StrokeShape="RoundRectangle 4" Padding="0" HeightRequest="50" WidthRequest="50" StrokeThickness="0" BackgroundColor="Transparent">
-                                <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                <Grid>
+                                    <BoxView>
+                                        <BoxView.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                <GradientStop Color="{Binding StartColor}" Offset="0.0"/>
+                                                <GradientStop Color="{Binding EndColor}" Offset="1.0"/>
+                                            </LinearGradientBrush>
+                                        </BoxView.Background>
+                                    </BoxView>
+                                    <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="16" TextColor="White" Margin="12" HorizontalOptions="Start" VerticalOptions="End"/>
+                                    <Label Text="{Binding Icon}" FontSize="50" HorizontalOptions="End" VerticalOptions="End" Rotation="25" TranslationX="15" TranslationY="5" Opacity="0.9"/>
+                                </Grid>
                             </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
 
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Margin="15,0,0,0" Spacing="2">
-                                <HorizontalStackLayout Spacing="8">
-                                    <Label Text="{Binding Title}" TextColor="White" FontFamily="MontserratBold" FontSize="15" LineBreakMode="TailTruncation" MaximumWidthRequest="180"/>
-                                    <Border IsVisible="{Binding IsPremium}" BackgroundColor="#FFD700" StrokeThickness="0" Padding="5,0" HeightRequest="16" StrokeShape="RoundRectangle 4" VerticalOptions="Center">
-                                        <Label Text="VIP" TextColor="Black" FontSize="9" FontFamily="MontserratBold" VerticalOptions="Center"/>
-                                    </Border>
-                                </HorizontalStackLayout>
-                                <Label Text="{Binding Artist}" TextColor="#AAA" FontFamily="MontserratRegular" FontSize="13" LineBreakMode="TailTruncation"/>
-                            </VerticalStackLayout>
+            <Grid IsVisible="{Binding IsExploring, Converter={StaticResource InvertedBoolConverter}}">
 
-                            <Label Grid.Column="2" Text="▶" TextColor="White" FontSize="14" VerticalOptions="Center" HorizontalOptions="End" Opacity="0.5"/>
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+                <ActivityIndicator IsRunning="{Binding IsLoading}" 
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource CosmicPink}"
+                                   VerticalOptions="Start"
+                                   HorizontalOptions="Center"
+                                   Margin="0,20,0,0"/>
 
-            <Border Margin="15,0,15,15" 
+                <CollectionView ItemsSource="{Binding SearchResults}" SelectionMode="None" Margin="0,0,0,90">
+
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10" Margin="0,100,0,0"
+                                             IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}">
+                            <Label Text="🔍" FontSize="40" HorizontalOptions="Center" TextColor="#666"/>
+                            <Label Text="Searching the universe..." FontSize="16" TextColor="#888" FontFamily="MontserratRegular"/>
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Song">
+                            <Grid Padding="20,10" ColumnDefinitions="55, *, 40">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:SearchViewModel}}, Path=SelectSongCommand}" CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+
+                                <Border Grid.Column="0" StrokeShape="RoundRectangle 4" Padding="0" HeightRequest="50" WidthRequest="50" StrokeThickness="0" BackgroundColor="Transparent">
+                                    <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                </Border>
+
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Margin="15,0,0,0" Spacing="2">
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Label Text="{Binding Title}" TextColor="White" FontFamily="MontserratBold" FontSize="15" LineBreakMode="TailTruncation" MaximumWidthRequest="180"/>
+                                        <Border IsVisible="{Binding IsPremium}" BackgroundColor="#FFD700" StrokeThickness="0" Padding="5,0" HeightRequest="16" StrokeShape="RoundRectangle 4" VerticalOptions="Center">
+                                            <Label Text="VIP" TextColor="Black" FontSize="9" FontFamily="MontserratBold" VerticalOptions="Center"/>
+                                        </Border>
+                                    </HorizontalStackLayout>
+                                    <Label Text="{Binding Artist}" TextColor="#AAA" FontFamily="MontserratRegular" FontSize="13" LineBreakMode="TailTruncation"/>
+                                </VerticalStackLayout>
+
+                                <Label Grid.Column="2" Text="▶" TextColor="White" FontSize="14" VerticalOptions="Center" HorizontalOptions="End" Opacity="0.5"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+
+            <Border IsVisible="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}"
+                    Margin="15,0,15,15" 
                     Padding="0"
                     Stroke="{StaticResource CosmicPink}"
                     StrokeThickness="1"
                     BackgroundColor="#251035"
-                    StrokeShape="RoundRectangle 12"
-                    HeightRequest="65"
+                    StrokeShape="RoundRectangle 20"
+                    HeightRequest="70"
                     VerticalOptions="End">
-                <Border.Shadow>
-                    <Shadow Brush="Black" Offset="0,4" Radius="10" Opacity="0.7"/>
-                </Border.Shadow>
 
-                <Border.Triggers>
-                    <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="False">
-                        <Setter Property="IsVisible" Value="False" />
-                    </DataTrigger>
-                    <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="True">
-                        <Setter Property="IsVisible" Value="True" />
-                    </DataTrigger>
-                </Border.Triggers>
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.5"/>
+                </Border.Shadow>
 
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
                 </Border.GestureRecognizers>
 
-                <Grid ColumnDefinitions="60, *, 40, 40" ColumnSpacing="0">
-                    <Border Grid.Column="0" Padding="0" StrokeShape="RoundRectangle 8" Margin="8" StrokeThickness="0" BackgroundColor="Transparent">
+                <Grid ColumnDefinitions="65, *, 40, 40, 40" ColumnSpacing="0" Margin="0,0,10,0">
+
+                    <Border Grid.Column="0" Padding="0" StrokeShape="RoundRectangle 15" Margin="5" StrokeThickness="0" BackgroundColor="Transparent">
                         <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
                     </Border>
 
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0" Margin="5,0">
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="5,0">
                         <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#BBB" LineBreakMode="TailTruncation"/>
+                        <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#AAA" LineBreakMode="TailTruncation"/>
                     </VerticalStackLayout>
 
                     <Grid Grid.Column="2" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                         <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding AudioPlayer.ToggleFavoriteCommand}"/>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.PreviousCommand}"/>
                         </Grid.GestureRecognizers>
-                        <Label Text="❤" TextColor="{Binding AudioPlayer.FavoriteColor}" FontSize="18" VerticalOptions="Center" HorizontalOptions="Center"/>
+                        <Path Data="{StaticResource IconPrevious}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
                     </Grid>
 
-                    <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40" Margin="0,0,5,0">
+                    <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding AudioPlayer.PlayPauseCommand}"/>
                         </Grid.GestureRecognizers>
-                        <Path Data="{StaticResource IconPlay}" Fill="White" Aspect="Uniform" HeightRequest="20" WidthRequest="20" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Path Data="{StaticResource IconPlay}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" VerticalOptions="Center">
                             <Path.Triggers>
                                 <DataTrigger TargetType="Path" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
                                     <Setter Property="Data" Value="{StaticResource IconPause}"/>
@@ -211,6 +213,14 @@
                             </Path.Triggers>
                         </Path>
                     </Grid>
+
+                    <Grid Grid.Column="4" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding AudioPlayer.NextCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Path Data="{StaticResource IconNext}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                    </Grid>
+
                 </Grid>
             </Border>
 

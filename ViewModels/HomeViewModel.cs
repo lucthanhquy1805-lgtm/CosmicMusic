@@ -6,31 +6,28 @@ using CosmicMusic.Services;
 using CosmicMusic.Views;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace CosmicMusic.ViewModels
 {
     public partial class HomeViewModel : ObservableObject, IRecipient<SongPlayedMessage>
     {
-        // 👇 ĐÃ ĐỔI: Sử dụng FirestoreService thay cho MusicApiService cũ
         private readonly FirestoreService _firestoreService;
         private readonly AudioViewModel _audioViewModel;
 
         // ==========================================================
-        // 1. CÁC DANH SÁCH DỮ LIỆU HIỂN THỊ (ĐÃ MỞ RỘNG)
+        // 1. CÁC DANH SÁCH DỮ LIỆU HIỂN THỊ
         // ==========================================================
-        public ObservableCollection<Song> Playlist { get; set; } = new();           // Dùng hiển thị danh sách bài hát
-        public ObservableCollection<Album> FeaturedAlbums { get; set; } = new();    // Danh sách Album
-        public ObservableCollection<Artist> Artists { get; set; } = new();          // 👇 Danh sách Ca sĩ (MỚI)
-        public ObservableCollection<Genre> Genres { get; set; } = new();            // 👇 Danh sách Thể loại (MỚI)
+        public ObservableCollection<Song> Playlist { get; set; } = new();
+        public ObservableCollection<Album> FeaturedAlbums { get; set; } = new();
+        public ObservableCollection<Artist> Artists { get; set; } = new();
+        public ObservableCollection<Genre> Genres { get; set; } = new();
 
-        // Giữ lại TopArtists kiểu Album cho giao diện cũ (để không lỗi XAML)
+        // Tương thích XAML cũ
         public ObservableCollection<Album> TopArtists { get; set; } = new();
 
-        // Danh sách bài hát vừa nghe
-        public ObservableCollection<Song> RecentlyPlayedList { get; set; } = new();
-
+        // 👇 CHỈ DÙNG 1 BIẾN DUY NHẤT CHO FIREBASE RECENTLY PLAYED 👇
+        public ObservableCollection<Song> RecentlyPlayed { get; set; } = new();
         public AudioViewModel AudioPlayer => _audioViewModel;
 
         // ==========================================================
@@ -42,143 +39,93 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private bool _isPremiumUser;
         [ObservableProperty] private string _avatarBorderColor = "#6C63FF";
 
-        [ObservableProperty] private bool _hasHistory;
+        [ObservableProperty] private bool _hasRecentlyPlayed;
 
-        // 3. Khởi tạo
-        // 👇 ĐÃ SỬA: Bơm (Inject) FirestoreService vào
+        // ==========================================================
+        // 3. KHỞI TẠO VÀ LẮNG NGHE SỰ KIỆN
+        // ==========================================================
         public HomeViewModel(FirestoreService firestoreService, AudioViewModel audioViewModel)
         {
             _firestoreService = firestoreService;
             _audioViewModel = audioViewModel;
 
-            // Đăng ký nhận tin nhắn
+            // Lắng nghe: Cứ bài nào phát là Load lại lịch sử từ Firebase!
             WeakReferenceMessenger.Default.Register<SongPlayedMessage>(this);
 
             LoadUserAvatar();
-            LoadHistory();
-            LoadDataFromFirebase(); // Đổi tên hàm cho rõ nghĩa
+            LoadDataFromFirebase();
         }
 
-        // ==========================================================
-        // XỬ LÝ LỊCH SỬ NGHE NHẠC (RECENTLY PLAYED)
-        // ==========================================================
+        // MAUI Tự động gọi hàm này khi có tin nhắn SongPlayedMessage từ Trình phát nhạc
         public void Receive(SongPlayedMessage message)
         {
             var song = message.PlayedSong;
             if (song == null) return;
 
-            // Đảm bảo cập nhật UI trên Main Thread
+            // Cập nhật giao diện NGAY LẬP TỨC mà không cần đợi Firebase tải lại
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                var existing = RecentlyPlayedList.FirstOrDefault(s => s.Title == song.Title);
-                if (existing != null) RecentlyPlayedList.Remove(existing);
+                // Kiểm tra xem bài hát này đã có trong danh sách Nghe gần đây chưa
+                var existingSong = RecentlyPlayed.FirstOrDefault(s => s.Id == song.Id);
 
-                RecentlyPlayedList.Insert(0, song);
-
-                if (RecentlyPlayedList.Count > 10)
+                // Nếu có rồi thì xóa cái cũ đi
+                if (existingSong != null)
                 {
-                    RecentlyPlayedList.RemoveAt(RecentlyPlayedList.Count - 1);
+                    RecentlyPlayed.Remove(existingSong);
                 }
 
-                HasHistory = RecentlyPlayedList.Count > 0;
-                SaveHistory();
+                // Chèn bài vừa bấm nghe lên VỊ TRÍ ĐẦU TIÊN
+                RecentlyPlayed.Insert(0, song);
+
+                // Nếu danh sách dài quá 10 bài thì xóa bớt bài cuối cùng
+                if (RecentlyPlayed.Count > 10)
+                {
+                    RecentlyPlayed.RemoveAt(RecentlyPlayed.Count - 1);
+                }
+
+                HasRecentlyPlayed = RecentlyPlayed.Count > 0;
             });
         }
 
-        private void SaveHistory()
-        {
-            try
-            {
-                string userId = Preferences.Get("UserId", "Guest");
-                string key = $"History_{userId}";
-                var json = JsonSerializer.Serialize(RecentlyPlayedList);
-                Preferences.Set(key, json);
-            }
-            catch { }
-        }
-
-        private void LoadHistory()
-        {
-            try
-            {
-                string userId = Preferences.Get("UserId", "Guest");
-                string key = $"History_{userId}";
-                string json = Preferences.Get(key, "");
-
-                RecentlyPlayedList.Clear();
-
-                if (!string.IsNullOrEmpty(json))
-                {
-                    var list = JsonSerializer.Deserialize<List<Song>>(json);
-                    if (list != null && list.Count > 0)
-                    {
-                        foreach (var item in list) RecentlyPlayedList.Add(item);
-                    }
-                }
-                HasHistory = RecentlyPlayedList.Count > 0;
-            }
-            catch
-            {
-                HasHistory = false;
-            }
-        }
 
         // ==========================================================
-        // 4. HÀM TẢI DỮ LIỆU TỪ FIREBASE (ĐÃ SỬA CHỮA HOÀN TOÀN)
+        // 4. HÀM TẢI DỮ LIỆU TỪ FIREBASE
         // ==========================================================
         private async void LoadDataFromFirebase()
         {
             try
             {
-                // Gọi song song các tác vụ để tăng tốc độ tải
                 var taskSongs = _firestoreService.GetAllSongsAsync();
                 var taskAlbums = _firestoreService.GetAllAlbumsAsync();
                 var taskArtists = _firestoreService.GetAllArtistsAsync();
                 var taskGenres = _firestoreService.GetAllGenresAsync();
 
-                // Chờ tất cả dữ liệu tải xong
+                // Đồng thời tải luôn lịch sử nghe nhạc của User này
+                await LoadRecentlyPlayedAsync();
+
                 await Task.WhenAll(taskSongs, taskAlbums, taskArtists, taskGenres);
 
-                // Cập nhật UI trên Main Thread
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    // 1. Gán danh sách Bài hát
                     Playlist.Clear();
-                    foreach (var song in taskSongs.Result)
-                    {
-                        Playlist.Add(song);
-                    }
+                    foreach (var song in taskSongs.Result) Playlist.Add(song);
 
-                    // 2. Gán danh sách Album
                     FeaturedAlbums.Clear();
-                    foreach (var album in taskAlbums.Result)
-                    {
-                        FeaturedAlbums.Add(album);
-                    }
+                    foreach (var album in taskAlbums.Result) FeaturedAlbums.Add(album);
 
-                    // 3. Gán danh sách Ca sĩ (Model mới)
                     Artists.Clear();
-                    foreach (var artist in taskArtists.Result)
-                    {
-                        Artists.Add(artist);
-                    }
+                    foreach (var artist in taskArtists.Result) Artists.Add(artist);
 
-                    // 4. Gán danh sách Thể loại
                     Genres.Clear();
-                    foreach (var genre in taskGenres.Result)
-                    {
-                        Genres.Add(genre);
-                    }
+                    foreach (var genre in taskGenres.Result) Genres.Add(genre);
 
-                    // --- GIỮ LẠI ĐỂ TƯƠNG THÍCH XAML CŨ ---
-                    // Vì giao diện Home của bạn đang bind biến TopArtists (dạng List<Album>)
-                    // Nên tôi map dữ liệu Artist mới lấy được qua chuẩn cũ để giao diện hiển thị ngay lập tức
+                    // Tương thích cho list XAML cũ
                     TopArtists.Clear();
                     foreach (var artist in taskArtists.Result)
                     {
                         TopArtists.Add(new Album
                         {
-                            Id = artist.Id, // 👈 THÊM DÒNG NÀY ĐỂ KHI BẤM VÀO CA SĨ NÓ CÓ ID ĐỂ TÌM
+                            Id = artist.Id,
                             Title = artist.Name,
                             Artist = "Nghệ sĩ",
                             CoverImage = artist.Avatar,
@@ -193,8 +140,27 @@ namespace CosmicMusic.ViewModels
             }
         }
 
+        // 👇 ĐÂY LÀ TRÁI TIM CỦA TÍNH NĂNG "NGHE GẦN ĐÂY" LẤY TỪ FIREBASE 👇
+        private async Task LoadRecentlyPlayedAsync()
+        {
+            string uid = Preferences.Get("UserId", "");
+            if (string.IsNullOrEmpty(uid)) return;
+
+            var recentSongs = await _firestoreService.GetRecentlyPlayedAsync(uid);
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                RecentlyPlayed.Clear();
+                foreach (var song in recentSongs.Take(10))
+                {
+                    RecentlyPlayed.Add(song);
+                }
+                HasRecentlyPlayed = RecentlyPlayed.Count > 0;
+            });
+        }
+
         // ==========================================================
-        // 5. CÁC HÀM CẬP NHẬT USER
+        // 5. QUẢN LÝ NGƯỜI DÙNG
         // ==========================================================
         public void LoadUserAvatar()
         {
@@ -251,7 +217,12 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
-            _audioViewModel.PlaySong(song, Playlist);
+            // 👇 Sử dụng list nhạc tương ứng làm danh sách chờ (ContextList)
+            // Nếu bấm từ Recently Played -> Danh sách chờ là Recently Played
+            // Nếu bấm từ Recommend -> Danh sách chờ là Playlist tổng
+            var contextList = RecentlyPlayed.Contains(song) ? RecentlyPlayed : Playlist;
+            _audioViewModel.PlaySong(song, contextList);
+
             await Shell.Current.GoToAsync(nameof(PlayerPage));
         }
 
@@ -275,15 +246,16 @@ namespace CosmicMusic.ViewModels
                 UserAvatarText = "?";
                 UserName = "Khách";
 
-                RecentlyPlayedList.Clear();
-                HasHistory = false;
+                // Xóa UI
+                RecentlyPlayed.Clear();
+                HasRecentlyPlayed = false;
 
                 await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
             }
         }
 
         [RelayCommand] public async Task NavigateToPlayer() { if (_audioViewModel.CurrentSong != null) await Shell.Current.GoToAsync(nameof(PlayerPage)); }
-        [RelayCommand] public async Task NavigateToSearch() { await Shell.Current.GoToAsync("//SearchTab/SearchPage"); }
+        [RelayCommand] public async Task NavigateToSearch() { await Shell.Current.GoToAsync("//SearchTab"); }
         [RelayCommand] public void TapUserAvatar() { IsUserMenuVisible = !IsUserMenuVisible; }
         [RelayCommand] public void CloseUserMenu() { IsUserMenuVisible = false; }
         [RelayCommand] public async Task OpenProfile() { IsUserMenuVisible = false; await Shell.Current.GoToAsync(nameof(ProfilePage)); }
@@ -291,6 +263,6 @@ namespace CosmicMusic.ViewModels
         [RelayCommand] public async Task AddAccount() { await Shell.Current.DisplayAlert("Thông báo", "Tính năng đang phát triển", "OK"); }
         [RelayCommand] public async Task OpenWhatsNew() { IsUserMenuVisible = false; await Shell.Current.DisplayAlert("Mới", "Update tính năng Group Album!", "OK"); }
         [RelayCommand] public async Task OpenStats() { IsUserMenuVisible = false; await Shell.Current.DisplayAlert("Thống kê", "Bạn đã nghe nhạc rất nhiều!", "OK"); }
-        [RelayCommand] public async Task OpenHistory() { IsUserMenuVisible = false; await Shell.Current.DisplayAlert("Gần đây", "Danh sách đã xem...", "OK"); }
+        [RelayCommand] public async Task OpenHistory() { IsUserMenuVisible = false; await Shell.Current.DisplayAlert("Gần đây", "Tính năng này hiện được hiển thị ở màn hình chính.", "OK"); }
     }
 }

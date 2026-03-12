@@ -10,7 +10,7 @@ namespace CosmicMusic.ViewModels
     public partial class SearchViewModel : ObservableObject
     {
         private readonly FirestoreService _firestoreService;
-        
+
         private readonly AudioViewModel _audioViewModel;
         public AudioViewModel AudioPlayer => _audioViewModel;
 
@@ -28,6 +28,7 @@ namespace CosmicMusic.ViewModels
         private bool _isExploring = true;
 
         private CancellationTokenSource _searchCancellationTokenSource;
+        private bool _isNavigating = false;
 
         public SearchViewModel(AudioViewModel audioViewModel, FirestoreService firestoreService)
         {
@@ -40,14 +41,15 @@ namespace CosmicMusic.ViewModels
         private void LoadCategories()
         {
             BrowseCategories.Clear();
-            BrowseCategories.Add(new BrowseCategory { Title = "Pop", StartColor = "#FF0055", EndColor = "#FF00CC", Icon = "🎤" });
-            BrowseCategories.Add(new BrowseCategory { Title = "Rock", StartColor = "#CC2B5E", EndColor = "#753A88", Icon = "🎸" });
-            BrowseCategories.Add(new BrowseCategory { Title = "Hip-Hop", StartColor = "#FF9966", EndColor = "#FF5E62", Icon = "🎧" });
-            BrowseCategories.Add(new BrowseCategory { Title = "Indie", StartColor = "#00F260", EndColor = "#0575E6", Icon = "🌵" });
-            BrowseCategories.Add(new BrowseCategory { Title = "R&B", StartColor = "#4568DC", EndColor = "#B06AB3", Icon = "🎷" });
-            BrowseCategories.Add(new BrowseCategory { Title = "K-Pop", StartColor = "#834d9b", EndColor = "#d04ed6", Icon = "💃" });
-            BrowseCategories.Add(new BrowseCategory { Title = "Sleep", StartColor = "#0F2027", EndColor = "#2C5364", Icon = "🌙" });
-            BrowseCategories.Add(new BrowseCategory { Title = "Gaming", StartColor = "#11998e", EndColor = "#38ef7d", Icon = "🎮" });
+            // 👇 CHÚ Ý: Ô Hip-Hop được gán GenreId = "genre_rap" để khớp với Firebase của bạn 👇
+            BrowseCategories.Add(new BrowseCategory { Title = "Pop", GenreId = "genre_Ballad", StartColor = "#FF0055", EndColor = "#FF00CC", Icon = "🎤" });
+            BrowseCategories.Add(new BrowseCategory { Title = "Rock", GenreId = "genre_rock", StartColor = "#CC2B5E", EndColor = "#753A88", Icon = "🎸" });
+            BrowseCategories.Add(new BrowseCategory { Title = "Hip-Hop", GenreId = "genre_rap", StartColor = "#FF9966", EndColor = "#FF5E62", Icon = "🎧" });
+            BrowseCategories.Add(new BrowseCategory { Title = "Indie", GenreId = "genre_indie", StartColor = "#00F260", EndColor = "#0575E6", Icon = "🌵" });
+            BrowseCategories.Add(new BrowseCategory { Title = "R&B", GenreId = "genre_rnb", StartColor = "#4568DC", EndColor = "#B06AB3", Icon = "🎷" });
+            BrowseCategories.Add(new BrowseCategory { Title = "K-Pop", GenreId = "genre_kpop", StartColor = "#834d9b", EndColor = "#d04ed6", Icon = "💃" });
+            BrowseCategories.Add(new BrowseCategory { Title = "Sleep", GenreId = "genre_sleep", StartColor = "#0F2027", EndColor = "#2C5364", Icon = "🌙" });
+            BrowseCategories.Add(new BrowseCategory { Title = "Gaming", GenreId = "genre_gaming", StartColor = "#11998e", EndColor = "#38ef7d", Icon = "🎮" });
         }
 
         // 🟢 XỬ LÝ GÕ PHÍM (DEBOUNCE)
@@ -144,25 +146,28 @@ namespace CosmicMusic.ViewModels
             await Shell.Current.GoToAsync("..");
         }
 
+      
         [RelayCommand]
         public async Task SelectSong(Song song)
         {
-            if (song == null) return;
+            if (song == null || _isNavigating) return;
+            _isNavigating = true;
 
             bool isUserVip = Preferences.Get("IsPremium", false);
             if (song.IsPremium == true && isUserVip == false)
             {
-                bool answer = await Shell.Current.DisplayAlert("Premium Content 👑",
-                    "Bài hát này dành riêng cho thành viên VIP. Nâng cấp ngay?",
-                    "Xem gói VIP", "Để sau");
-
+                bool answer = await Shell.Current.DisplayAlert("Premium Content 👑", "Bài hát này dành riêng cho thành viên VIP. Nâng cấp ngay?", "Xem gói VIP", "Để sau");
                 if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
+                _isNavigating = false;
                 return;
             }
 
             var contextList = new ObservableCollection<Song>(SearchResults);
             _audioViewModel.PlaySong(song, contextList);
             await NavigateToPlayer();
+
+            await Task.Delay(500);
+            _isNavigating = false;
         }
 
         [RelayCommand]
@@ -171,11 +176,24 @@ namespace CosmicMusic.ViewModels
             if (_audioViewModel.CurrentSong != null)
                 await Shell.Current.GoToAsync(nameof(PlayerPage));
         }
+
+        [RelayCommand]
+        public async Task SelectCategory(BrowseCategory category)
+        {
+            if (category == null || _isNavigating) return; // Nếu đang khóa thì bỏ qua
+
+            _isNavigating = true; // Bật khóa
+            await Shell.Current.GoToAsync($"{nameof(GenreDetailPage)}?GenreName={category.Title}&GenreId={category.GenreId}");
+
+            await Task.Delay(500); // Đợi nửa giây
+            _isNavigating = false; // Mở khóa lại
+        }
     }
 
     public class BrowseCategory
     {
         public string Title { get; set; }
+        public string GenreId { get; set; }
         public string StartColor { get; set; }
         public string EndColor { get; set; }
         public string Icon { get; set; }

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             xmlns:models="clr-namespace:CosmicMusic.Models"
+             x:Class="CosmicMusic.Views.GenreDetailPage"
+             x:DataType="viewmodels:GenreDetailViewModel"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
+            <Color x:Key="CosmicPink">#D946EF</Color>
+
+            <x:String x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</x:String>
+            <x:String x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</x:String>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid BackgroundColor="#120520">
+
+        <Grid RowDefinitions="Auto, Auto, *">
+
+            <Grid Grid.Row="0" HeightRequest="150" Padding="15,40,15,15">
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#8E2DE2" Offset="0.0" />
+                        <GradientStop Color="#120520" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Grid.Background>
+
+                <ImageButton Command="{Binding GoBackCommand}" 
+                             HorizontalOptions="Start" VerticalOptions="Start" 
+                             HeightRequest="30" WidthRequest="30" BackgroundColor="Transparent">
+                    <ImageButton.Source>
+                        <FontImageSource Glyph="❮" Color="White" Size="20"/>
+                    </ImageButton.Source>
+                </ImageButton>
+
+                <Label Text="{Binding GenreName}" FontFamily="MontserratBold" FontSize="40" TextColor="White" VerticalOptions="End" HorizontalOptions="Start"/>
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*, *" ColumnSpacing="15" Margin="20,10" 
+                  IsVisible="{Binding GenreSongs.Count, Converter={StaticResource IsNotNullConverter}}">
+
+                <Button Grid.Column="0" 
+                        Text="▶ PHÁT NGAY" 
+                        Command="{Binding PlayAllCommand}"
+                        BackgroundColor="{StaticResource CosmicPink}" 
+                        TextColor="White" 
+                        FontFamily="MontserratBold" 
+                        CornerRadius="25" 
+                        HeightRequest="50"/>
+
+                <Button Grid.Column="1" 
+                        Text="🔀 NGẪU NHIÊN" 
+                        Command="{Binding ShuffleCommand}"
+                        BackgroundColor="#332A38" 
+                        TextColor="White" 
+                        FontFamily="MontserratBold" 
+                        CornerRadius="25" 
+                        HeightRequest="50"/>
+            </Grid>
+
+            <Grid Grid.Row="2">
+                <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Color="#D946EF" VerticalOptions="Start" HorizontalOptions="Center" Margin="0,20,0,0"/>
+
+                <CollectionView ItemsSource="{Binding GenreSongs}" SelectionMode="None" Margin="0,10,0,90">
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10" Margin="0,100,0,0"
+                                             IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}">
+                            <Label Text="🪹" FontSize="50" HorizontalOptions="Center" Opacity="0.7"/>
+                            <Label Text="Chưa có bài hát nào" FontSize="18" FontFamily="MontserratBold" TextColor="White" HorizontalOptions="Center"/>
+                            <Label Text="Thể loại này hiện đang trống." FontSize="14" FontFamily="MontserratRegular" TextColor="#888" HorizontalOptions="Center"/>
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Song">
+                            <Grid Padding="20,10" ColumnDefinitions="55, *, 40">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:GenreDetailViewModel}}, Path=SelectSongCommand}" CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+
+                                <Border Grid.Column="0" StrokeShape="RoundRectangle 4" Padding="0" HeightRequest="50" WidthRequest="50" StrokeThickness="0" BackgroundColor="Transparent">
+                                    <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                </Border>
+
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Margin="15,0,0,0" Spacing="2">
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Label Text="{Binding Title}" TextColor="White" FontFamily="MontserratBold" FontSize="15" LineBreakMode="TailTruncation" MaximumWidthRequest="180"/>
+                                        <Border IsVisible="{Binding IsPremium}" BackgroundColor="#FFD700" StrokeThickness="0" Padding="5,0" HeightRequest="16" StrokeShape="RoundRectangle 4" VerticalOptions="Center">
+                                            <Label Text="VIP" TextColor="Black" FontSize="9" FontFamily="MontserratBold" VerticalOptions="Center"/>
+                                        </Border>
+                                    </HorizontalStackLayout>
+                                    <Label Text="{Binding Artist}" TextColor="#AAA" FontFamily="MontserratRegular" FontSize="13" LineBreakMode="TailTruncation"/>
+                                </VerticalStackLayout>
+
+                                <Label Grid.Column="2" Text="▶" TextColor="White" FontSize="14" VerticalOptions="Center" HorizontalOptions="End" Opacity="0.5"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Grid>
+
+        <Border IsVisible="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}"
+                Margin="15,0,15,15" 
+                Padding="0"
+                Stroke="{StaticResource CosmicPink}"
+                StrokeThickness="1"
+                BackgroundColor="#251035"
+                StrokeShape="RoundRectangle 12"
+                HeightRequest="65"
+                VerticalOptions="End">
+
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="0,4" Radius="10" Opacity="0.7"/>
+            </Border.Shadow>
+
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
+            </Border.GestureRecognizers>
+
+            <Grid ColumnDefinitions="60, *, 40, 40" ColumnSpacing="0">
+                <Border Grid.Column="0" Padding="0" StrokeShape="RoundRectangle 8" Margin="8" StrokeThickness="0" BackgroundColor="Transparent">
+                    <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
+                </Border>
+
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0" Margin="5,0">
+                    <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" LineBreakMode="TailTruncation"/>
+                    <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#BBB" LineBreakMode="TailTruncation"/>
+                </VerticalStackLayout>
+
+                <Grid Grid.Column="2" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding AudioPlayer.ToggleFavoriteCommand}"/>
+                    </Grid.GestureRecognizers>
+                    <Label Text="❤" TextColor="{Binding AudioPlayer.FavoriteColor}" FontSize="18" VerticalOptions="Center" HorizontalOptions="Center"/>
+                </Grid>
+
+                <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40" Margin="0,0,5,0">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding AudioPlayer.PlayPauseCommand}"/>
+                    </Grid.GestureRecognizers>
+                    <Path Data="{StaticResource IconPlay}" Fill="White" Aspect="Uniform" HeightRequest="20" WidthRequest="20" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Path.Triggers>
+                            <DataTrigger TargetType="Path" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
+                                <Setter Property="Data" Value="{StaticResource IconPause}"/>
+                            </DataTrigger>
+                        </Path.Triggers>
+                    </Path>
+                </Grid>
+            </Grid>
+        </Border>
+
+    </Grid>
+</ContentPage>

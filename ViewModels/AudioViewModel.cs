@@ -31,7 +31,7 @@ namespace CosmicMusic.ViewModels
         public ObservableCollection<LyricLine> SyncedLyrics { get; set; } = new();
         private MediaElement _mediaElement;
         private bool _isDraggingSlider = false;
-
+        private bool _isNavigating = false;
         public ObservableCollection<Song> Playlist { get; set; } = new();
 
         public AudioViewModel(FirestoreService firestoreService)
@@ -240,6 +240,12 @@ namespace CosmicMusic.ViewModels
                 }
                 catch { }
             });
+
+            string uid = Preferences.Get("UserId", "");
+            if (!string.IsNullOrEmpty(uid))
+            {
+                Task.Run(() => _firestoreService.AddToRecentlyPlayedAsync(uid, song));
+            }
         }
 
         // ==========================================================
@@ -345,8 +351,35 @@ namespace CosmicMusic.ViewModels
         }
         [RelayCommand] public void ToggleShuffle() => IsShuffle = !IsShuffle;
         [RelayCommand] public void ToggleRepeat() => RepeatMode = (RepeatMode + 1) % 3;
-        [RelayCommand] public async Task GoBack() => await Shell.Current.GoToAsync("..");
 
+       
+        // ==========================================================
+        // LỆNH LÙI TRANG (ÉP RÚT TRANG VẬT LÝ - BYPASS LỖI SHELL)
+        // ==========================================================
+        [RelayCommand]
+        public async Task GoBack()
+        {
+            if (_isNavigating) return;
+            _isNavigating = true;
+
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                try
+                {
+                    // Lệnh Pop vật lý tuyệt đối: Không kiểm tra điều kiện, 
+                    // ép hệ thống gỡ trang hiện tại ra khỏi màn hình ngay lập tức!
+                    await Shell.Current.Navigation.PopAsync();
+                }
+                catch
+                {
+                    // Phương án dự phòng cuối cùng
+                    try { await Shell.Current.GoToAsync(".."); } catch { }
+                }
+            });
+
+            await Task.Delay(500);
+            _isNavigating = false;
+        }
         [RelayCommand]
         public void Next()
         {

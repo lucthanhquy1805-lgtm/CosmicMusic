@@ -86,6 +86,8 @@ public static class MauiProgram
         builder.Services.AddTransient<PremiumPage>();
 
         builder.Services.AddTransient<SettingsPage>();
+        builder.Services.AddTransient<GenreDetailViewModel>();
+        builder.Services.AddTransient<GenreDetailPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();
