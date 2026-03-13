@@ -202,5 +202,11 @@ namespace CosmicMusic.ViewModels
         {
             await Shell.Current.GoToAsync(nameof(PlayerPage));
         }
+
+        [RelayCommand]
+        public async Task OpenAddSongPage()
+        {
+            await Shell.Current.GoToAsync(nameof(AddSongPage));
+        }
     }
 }

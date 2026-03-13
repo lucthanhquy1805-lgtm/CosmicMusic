@@ -34,8 +34,14 @@
 
     <Grid RowDefinitions="Auto, *">
 
-        <Label Text="Thư viện" Grid.Row="0" FontSize="32" FontAttributes="Bold" TextColor="White" Margin="20,20,20,10" FontFamily="MontserratBold"/>
-
+        <Grid Grid.Row="0" Margin="20,20,20,10" ColumnDefinitions="*, Auto">
+            <Label Grid.Column="0" Text="Thư viện" FontSize="32" FontAttributes="Bold" TextColor="White" FontFamily="MontserratBold" VerticalOptions="Center"/>
+            <ImageButton Grid.Column="1" Command="{Binding OpenAddSongPageCommand}" BackgroundColor="#2E0B3F" CornerRadius="20" HeightRequest="40" WidthRequest="40" VerticalOptions="Center">
+                <ImageButton.Source>
+                    <FontImageSource Glyph="+" Color="{StaticResource CosmicPink}" Size="24"/>
+                </ImageButton.Source>
+            </ImageButton>
+        </Grid>
         <ScrollView Grid.Row="1" Padding="0,0,0,90">
             <VerticalStackLayout Spacing="25">
 

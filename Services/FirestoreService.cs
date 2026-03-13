@@ -1194,6 +1194,39 @@ namespace CosmicMusic.Services
 
             return list;
         }
+        // ==========================================================
+        // THÊM BÀI HÁT MỚI VÀO DATABASE
+        // ==========================================================
+        public async Task<bool> AddSongAsync(Song song)
+        {
+            try
+            {
+                string url = $"{_baseUrl}/songs";
+                var payload = new
+                {
+                    fields = new
+                    {
+                        title = new { stringValue = song.Title ?? "Unknown" },
+                        artist = new { stringValue = song.Artist ?? "Unknown" },
+                        coverImage = new { stringValue = song.CoverImage ?? "" },
+                        audioUrl = new { stringValue = song.AudioUrl ?? "" },
+                        genreId = new { stringValue = "genre_pop" }, // Mặc định gán vào mục Pop
+                        isPremium = new { booleanValue = song.IsPremium },
+                        isFeatured = new { booleanValue = false }
+                    }
+                };
+
+                var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(url, content);
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi thêm bài hát: {ex.Message}");
+                return false;
+            }
+        }
     }
 
 

@@ -31,6 +31,7 @@ public static class MauiProgram
         // =================================================================
         builder.Services.AddSingleton<FirestoreService>();
         builder.Services.AddSingleton<DatabaseService>();
+        builder.Services.AddSingleton<S3Service>();
         //builder.Services.AddSingleton<MusicApiService>();
 
         // AudioViewModel phải là Singleton
@@ -92,7 +93,8 @@ public static class MauiProgram
 #if DEBUG
         builder.Logging.AddDebug();
 #endif
-
+        builder.Services.AddTransient<AddSongViewModel>();
+        builder.Services.AddTransient<Views.AddSongPage>();
         return builder.Build();
     }
 }

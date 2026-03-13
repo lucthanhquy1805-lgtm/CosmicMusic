@@ -47,7 +47,7 @@ namespace CosmicMusic.ViewModels
             BrowseCategories.Add(new BrowseCategory { Title = "Hip-Hop", GenreId = "genre_rap", StartColor = "#FF9966", EndColor = "#FF5E62", Icon = "🎧" });
             BrowseCategories.Add(new BrowseCategory { Title = "Indie", GenreId = "genre_indie", StartColor = "#00F260", EndColor = "#0575E6", Icon = "🌵" });
             BrowseCategories.Add(new BrowseCategory { Title = "R&B", GenreId = "genre_rnb", StartColor = "#4568DC", EndColor = "#B06AB3", Icon = "🎷" });
-            BrowseCategories.Add(new BrowseCategory { Title = "K-Pop", GenreId = "genre_kpop", StartColor = "#834d9b", EndColor = "#d04ed6", Icon = "💃" });
+            BrowseCategories.Add(new BrowseCategory { Title = "K-Pop", GenreId = "genre_pop", StartColor = "#834d9b", EndColor = "#d04ed6", Icon = "💃" });
             BrowseCategories.Add(new BrowseCategory { Title = "Sleep", GenreId = "genre_sleep", StartColor = "#0F2027", EndColor = "#2C5364", Icon = "🌙" });
             BrowseCategories.Add(new BrowseCategory { Title = "Gaming", GenreId = "genre_gaming", StartColor = "#11998e", EndColor = "#38ef7d", Icon = "🎮" });
         }
