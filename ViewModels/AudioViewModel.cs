@@ -189,6 +189,8 @@ namespace CosmicMusic.ViewModels
 
             CurrentPosition = TimeSpan.Zero;
             CurrentPositionSeconds = 0;
+            LyricsOffset = 0;
+            _currentLyricIndex = -1;
             Duration = song.Duration > 0 ? TimeSpan.FromSeconds(song.Duration) : TimeSpan.Zero;
 
             // 👇 BỔ SUNG: Reset lại độ lệch Lyrics về 0 mỗi khi qua bài hát mới
