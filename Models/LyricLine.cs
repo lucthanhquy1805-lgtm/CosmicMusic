@@ -2,15 +2,13 @@
 
 namespace CosmicMusic.Models
 {
+    // BẮT BUỘC phải có ObservableObject thì giao diện mới tự đổi màu được
     public partial class LyricLine : ObservableObject
     {
-        [ObservableProperty]
-        private TimeSpan _time;
+        public TimeSpan Time { get; set; }
+        public string Text { get; set; }
 
         [ObservableProperty]
-        private string _text;
-
-        [ObservableProperty]
-        private bool _isCurrent; // Biến này = true thì chữ sẽ phóng to và đổi màu
+        private bool _isCurrent;
     }
 }

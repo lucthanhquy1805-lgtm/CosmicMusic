@@ -36,6 +36,7 @@
                IsVisible="{Binding IsLyricsVisible}"/>
 
         <BoxView Color="Black"
+
                  Opacity="0.6"
                  IsVisible="{Binding IsLyricsVisible}"/>
 
@@ -89,13 +90,35 @@
                       Padding="15"
                       BackgroundColor="Transparent">
 
-                    <Grid Grid.Row="0" ColumnDefinitions="*, Auto" HeightRequest="40" Margin="0,0,0,10">
-                        <Label Text="LYRICS" TextColor="#AAFFFFFF" VerticalOptions="Center" FontSize="12" FontAttributes="Bold" CharacterSpacing="2"/>
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" HeightRequest="40" Margin="0,0,0,10">
+
+                        <Label Grid.Column="0" Text="LYRICS" TextColor="#AAFFFFFF" VerticalOptions="Center" FontSize="12" FontAttributes="Bold" CharacterSpacing="2"/>
+
+                        <Border Grid.Column="1" BackgroundColor="#44000000" StrokeThickness="1" Stroke="#33FFFFFF" StrokeShape="RoundRectangle 15"
+                                Padding="8,0" HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="28"
+                                IsVisible="{Binding IsEditingLyrics, Converter={StaticResource InvertedBoolConverter}}">
+                            <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                <Label Text="−" TextColor="White" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" Margin="0,-2,0,0">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding LyricsSlowerCommand}"/>
+                                    </Label.GestureRecognizers>
+                                </Label>
+
+                                <Label Text="{Binding LyricsOffset, StringFormat='{0:F1}s'}" TextColor="#00E5FF" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" WidthRequest="32" HorizontalTextAlignment="Center"/>
+
+                                <Label Text="+" TextColor="White" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" Margin="0,-2,0,0">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding LyricsFasterCommand}"/>
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </HorizontalStackLayout>
+                        </Border>
 
                         <ImageButton Command="{Binding ToggleEditLyricsCommand}"
-                                     Grid.Column="1"
+                                     Grid.Column="2"
                                      HeightRequest="24" WidthRequest="24"
-                                     BackgroundColor="Transparent">
+                                     BackgroundColor="Transparent"
+                                     HorizontalOptions="End">
                             <ImageButton.Source>
                                 <FontImageSource Glyph="✎" Color="White" Size="18" FontFamily="OpenSansRegular"/>
                             </ImageButton.Source>
@@ -112,12 +135,11 @@
                     </Grid>
 
                     <Grid Grid.Row="1">
-
                         <CollectionView x:Name="LyricsCollectionView"
-                ItemsSource="{Binding SyncedLyrics}" 
-                IsVisible="{Binding IsEditingLyrics, Converter={StaticResource InvertedBoolConverter}}" 
-                BackgroundColor="Transparent"
-                Margin="0,10,0,10">
+                                ItemsSource="{Binding SyncedLyrics}" 
+                                IsVisible="{Binding IsEditingLyrics, Converter={StaticResource InvertedBoolConverter}}" 
+                                BackgroundColor="Transparent"
+                                Margin="0,10,0,10">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:LyricLine">
                                     <Label Text="{Binding Text}" 
@@ -144,6 +166,7 @@
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
+
                         <Editor Text="{Binding EditLyricsText}"  IsVisible="{Binding IsEditingLyrics}"
                                 TextColor="White"
                                 Placeholder="Nhập lời bài hát dạng LRC: [00:15.00] Lời bài hát..."

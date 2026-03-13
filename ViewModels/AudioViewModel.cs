@@ -80,6 +80,36 @@ namespace CosmicMusic.ViewModels
         partial void OnRepeatModeChanged(int value) => IsRepeat = value > 0;
 
         // ==========================================================
+        // 👇 BỔ SUNG TÍNH NĂNG ĐỒNG BỘ LỜI NHẠC (OFFSET) 👇
+        // ==========================================================
+        [ObservableProperty]
+        private double _lyricsOffset = 0;
+
+        private int _currentLyricIndex = -1;
+
+        [RelayCommand]
+        public void LyricsFaster()
+        {
+            LyricsOffset += 0.5; // Kéo lời nhanh lên
+            ForceRefreshLyrics();
+        }
+
+        [RelayCommand]
+        public void LyricsSlower()
+        {
+            LyricsOffset -= 0.5; // Kéo lời chậm lại
+            ForceRefreshLyrics();
+        }
+        private void ForceRefreshLyrics()
+        {
+            _currentLyricIndex = -1; // Reset bộ nhớ
+            foreach (var line in SyncedLyrics) line.IsCurrent = false; // Tắt hết màu
+            SyncLyricWithTime(CurrentPosition); // Quét và tính toán lại ngay lập tức
+        }
+        // ==========================================================
+
+
+        // ==========================================================
         // MEDIA ELEMENT (GIỮ NGUYÊN)
         // ==========================================================
         public void SetMediaElement(MediaElement newMediaElement)
@@ -138,7 +168,7 @@ namespace CosmicMusic.ViewModels
 
         private void OnMediaEnded(object sender, EventArgs e) => Next();
 
-       
+
         // ==========================================================
         // 4. HÀM PHÁT NHẠC (ĐÃ FIX LỖI LOAD LYRIC CÓ SẴN)
         // ==========================================================
@@ -160,6 +190,9 @@ namespace CosmicMusic.ViewModels
             CurrentPosition = TimeSpan.Zero;
             CurrentPositionSeconds = 0;
             Duration = song.Duration > 0 ? TimeSpan.FromSeconds(song.Duration) : TimeSpan.Zero;
+
+            // 👇 BỔ SUNG: Reset lại độ lệch Lyrics về 0 mỗi khi qua bài hát mới
+            LyricsOffset = 0;
 
             // Reset Tim
             IsFavorite = false;
@@ -352,7 +385,7 @@ namespace CosmicMusic.ViewModels
         [RelayCommand] public void ToggleShuffle() => IsShuffle = !IsShuffle;
         [RelayCommand] public void ToggleRepeat() => RepeatMode = (RepeatMode + 1) % 3;
 
-       
+
         // ==========================================================
         // LỆNH LÙI TRANG (ÉP RÚT TRANG VẬT LÝ - BYPASS LỖI SHELL)
         // ==========================================================
@@ -546,28 +579,44 @@ namespace CosmicMusic.ViewModels
 
         private void SyncLyricWithTime(TimeSpan currentPosition)
         {
-            // 👇 CHỐNG LỖI: Nếu là bài hát chữ thường thì TỪ CHỐI cuộn màn hình và bôi trắng
             if (!_isLrcLyrics || SyncedLyrics.Count == 0) return;
 
+            // 1. Tính thời gian đã bù trừ Offset (Không để bị âm)
+            double effectiveSeconds = currentPosition.TotalSeconds + LyricsOffset;
+            if (effectiveSeconds < 0) effectiveSeconds = 0;
+            TimeSpan effectivePosition = TimeSpan.FromSeconds(effectiveSeconds);
+
+            int newIndex = -1;
+
+            // 2. Quét tìm câu hiện tại (Chỉ lấy câu cuối cùng thỏa mãn điều kiện)
             for (int i = 0; i < SyncedLyrics.Count; i++)
             {
-                bool shouldBeCurrent = currentPosition >= SyncedLyrics[i].Time &&
-                                       (i == SyncedLyrics.Count - 1 || currentPosition < SyncedLyrics[i + 1].Time);
-
-                if (SyncedLyrics[i].IsCurrent != shouldBeCurrent)
+                if (effectivePosition >= SyncedLyrics[i].Time)
                 {
-                    SyncedLyrics[i].IsCurrent = shouldBeCurrent;
-
-                    if (shouldBeCurrent)
-                    {
-                        WeakReferenceMessenger.Default.Send(new LyricScrolledMessage(SyncedLyrics[i]));
-                    }
+                    newIndex = i;
+                }
+                else
+                {
+                    break; // Tối ưu: Vượt quá thời gian thì dừng luôn không quét nữa
                 }
             }
+
+            // 3. Nếu câu hát bị thay đổi (Bật màu câu mới, tắt câu cũ)
+            if (newIndex != _currentLyricIndex && newIndex != -1)
+            {
+                // Tắt câu cũ
+                if (_currentLyricIndex >= 0 && _currentLyricIndex < SyncedLyrics.Count)
+                {
+                    SyncedLyrics[_currentLyricIndex].IsCurrent = false;
+                }
+
+                // Bật câu mới sáng lên
+                SyncedLyrics[newIndex].IsCurrent = true;
+                _currentLyricIndex = newIndex;
+
+                // Ra lệnh cuộn giao diện đến đúng câu đó
+                WeakReferenceMessenger.Default.Send(new LyricScrolledMessage(SyncedLyrics[newIndex]));
+            }
         }
-
-
-
     }
-
 }
