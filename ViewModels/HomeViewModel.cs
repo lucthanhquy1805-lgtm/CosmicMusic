@@ -10,10 +10,12 @@ using System.Threading.Tasks;
 
 namespace CosmicMusic.ViewModels
 {
-    public partial class HomeViewModel : ObservableObject, IRecipient<SongPlayedMessage>
+    // 👇 BỔ SUNG: Khai báo thêm IRecipient<RefreshLibraryMessage> để nhận lệnh làm mới
+    public partial class HomeViewModel : ObservableObject, IRecipient<SongPlayedMessage>, IRecipient<RefreshLibraryMessage>
     {
         private readonly FirestoreService _firestoreService;
         private readonly AudioViewModel _audioViewModel;
+        private bool _isNavigating = false;
 
         // ==========================================================
         // 1. CÁC DANH SÁCH DỮ LIỆU HIỂN THỊ
@@ -52,6 +54,9 @@ namespace CosmicMusic.ViewModels
             // Lắng nghe: Cứ bài nào phát là Load lại lịch sử từ Firebase!
             WeakReferenceMessenger.Default.Register<SongPlayedMessage>(this);
 
+            // 👇 BỔ SUNG: Lắng nghe thư yêu cầu Tải lại dữ liệu (Khi có bài hát/ca sĩ mới)
+            WeakReferenceMessenger.Default.Register<RefreshLibraryMessage>(this);
+
             LoadUserAvatar();
             LoadDataFromFirebase();
         }
@@ -87,6 +92,12 @@ namespace CosmicMusic.ViewModels
             });
         }
 
+        // 👇 BỔ SUNG: MAUI tự động gọi hàm này khi có người thêm Bài Hát / Ca sĩ mới
+        public void Receive(RefreshLibraryMessage message)
+        {
+            // Ra lệnh tải lại toàn bộ dữ liệu từ Firebase
+            LoadDataFromFirebase();
+        }
 
         // ==========================================================
         // 4. HÀM TẢI DỮ LIỆU TỪ FIREBASE
@@ -196,70 +207,145 @@ namespace CosmicMusic.ViewModels
         // ==========================================================
         // 6. CÁC LỆNH ĐIỀU HƯỚNG
         // ==========================================================
-
         [RelayCommand]
         public async Task OpenAlbum(Album albumItem)
         {
-            if (albumItem == null) return;
-            var param = new Dictionary<string, object> { { "AlbumData", albumItem } };
-            await Shell.Current.GoToAsync(nameof(AlbumDetailPage), param);
+            if (albumItem == null || _isNavigating) return;
+            try
+            {
+                _isNavigating = true;
+                var param = new Dictionary<string, object> { { "AlbumData", albumItem } };
+                await Shell.Current.GoToAsync(nameof(AlbumDetailPage), param);
+            }
+            finally { await Task.Delay(500); _isNavigating = false; }
         }
+
 
         [RelayCommand]
         public async Task SelectSong(Song song)
         {
-            if (song == null) return;
-            bool isCurrentVip = Preferences.Get("IsPremium", false);
-            if (song.IsPremium == true && isCurrentVip == false)
+            // Chặn ngay lập tức nếu dữ liệu rỗng hoặc App đang trong quá trình chuyển trang
+            if (song == null || _isNavigating) return;
+
+            try
             {
-                bool answer = await Shell.Current.DisplayAlert("Premium Content 👑", "Bài này dành cho VIP. Nâng cấp nhé?", "Xem gói VIP", "Để sau");
-                if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
-                return;
+                _isNavigating = true; // 🔒 Bấm chốt khóa cửa lại
+
+                bool isCurrentVip = Preferences.Get("IsPremium", false);
+                if (song.IsPremium == true && isCurrentVip == false)
+                {
+                    bool answer = await Shell.Current.DisplayAlert("Premium Content 👑", "Bài này dành cho VIP. Nâng cấp nhé?", "Xem gói VIP", "Để sau");
+                    if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
+                    return;
+                }
+
+                // Phát nhạc
+                var contextList = RecentlyPlayed.Contains(song) ? RecentlyPlayed : Playlist;
+                _audioViewModel.PlaySong(song, contextList);
+
+                // Mở trang Player
+                await Shell.Current.GoToAsync(nameof(PlayerPage));
             }
-
-            // 👇 Sử dụng list nhạc tương ứng làm danh sách chờ (ContextList)
-            // Nếu bấm từ Recently Played -> Danh sách chờ là Recently Played
-            // Nếu bấm từ Recommend -> Danh sách chờ là Playlist tổng
-            var contextList = RecentlyPlayed.Contains(song) ? RecentlyPlayed : Playlist;
-            _audioViewModel.PlaySong(song, contextList);
-
-            await Shell.Current.GoToAsync(nameof(PlayerPage));
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi chuyển trang Player: {ex.Message}");
+            }
+            finally
+            {
+                // 🔓 Đợi 0.5 giây rồi mới mở khóa, đảm bảo miễn nhiễm 100% với trò Spam Click
+                await Task.Delay(500);
+                _isNavigating = false;
+            }
         }
 
+        // 👇 ĐÃ THÊM LẠI HÀM LOGOUT Ở ĐÂY 👇
         [RelayCommand]
         public async Task PerformLogout()
         {
-            IsUserMenuVisible = false;
-            bool answer = await Shell.Current.DisplayAlert("Đăng xuất", "Bạn muốn thoát?", "Có", "Không");
+            IsUserMenuVisible = false; // Đóng cái menu đen lại
+
+            bool answer = await Shell.Current.DisplayAlert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất khỏi Cosmic Music?", "Có", "Không");
+
             if (answer)
             {
-                _audioViewModel.Cleanup();
+                try
+                {
+                    _isNavigating = true;
 
-                Preferences.Remove("AuthToken");
-                Preferences.Remove("UserEmail");
-                Preferences.Remove("UserName");
-                Preferences.Remove("UserId");
-                Preferences.Remove("IsPremium");
+                    if (_audioViewModel != null)
+                    {
+                        _audioViewModel.Cleanup();
+                    }
 
-                IsPremiumUser = false;
-                AvatarBorderColor = "#6C63FF";
-                UserAvatarText = "?";
-                UserName = "Khách";
+                    Preferences.Remove("AuthToken");
+                    Preferences.Remove("UserEmail");
+                    Preferences.Remove("UserName");
+                    Preferences.Remove("UserId");
+                    Preferences.Remove("IsPremium");
 
-                // Xóa UI
-                RecentlyPlayed.Clear();
-                HasRecentlyPlayed = false;
+                    IsPremiumUser = false;
+                    AvatarBorderColor = "#6C63FF";
+                    UserAvatarText = "?";
+                    UserName = "Khách";
 
-                await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+                    RecentlyPlayed?.Clear();
+                    HasRecentlyPlayed = false;
+
+                    // Dùng 3 dấu /// để ra lệnh cho MAUI xóa sạch lịch sử trang và quay về Root
+                    await Shell.Current.GoToAsync($"///{nameof(LoginPage)}");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"❌ Lỗi Đăng xuất: {ex.Message}");
+                }
+                finally
+                {
+                    await Task.Delay(500);
+                    _isNavigating = false;
+                }
             }
         }
 
-        [RelayCommand] public async Task NavigateToPlayer() { if (_audioViewModel.CurrentSong != null) await Shell.Current.GoToAsync(nameof(PlayerPage)); }
-        [RelayCommand] public async Task NavigateToSearch() { await Shell.Current.GoToAsync("//SearchTab"); }
+
+        [RelayCommand]
+        public async Task NavigateToPlayer()
+        {
+            if (_audioViewModel.CurrentSong == null || _isNavigating) return;
+            try { _isNavigating = true; await Shell.Current.GoToAsync(nameof(PlayerPage)); }
+            finally { await Task.Delay(500); _isNavigating = false; }
+        }
+
+        [RelayCommand]
+        public async Task NavigateToSearch()
+        {
+            if (_isNavigating) return;
+            try { _isNavigating = true; await Shell.Current.GoToAsync("//SearchTab"); }
+            finally { await Task.Delay(500); _isNavigating = false; }
+        }
+
+        [RelayCommand]
+        public async Task OpenProfile()
+        {
+            if (_isNavigating) return;
+            IsUserMenuVisible = false;
+            try { _isNavigating = true; await Shell.Current.GoToAsync(nameof(ProfilePage)); }
+            finally { await Task.Delay(500); _isNavigating = false; }
+        }
+
+        [RelayCommand]
+        public async Task OpenSettings()
+        {
+            if (_isNavigating) return;
+            IsUserMenuVisible = false;
+            try { _isNavigating = true; await Shell.Current.GoToAsync(nameof(SettingsPage)); }
+            finally { await Task.Delay(500); _isNavigating = false; }
+        }
+
+        // ==========================================================
+        // CÁC LỆNH KHÔNG CHUYỂN TRANG (Chỉ hiện Popup/Menu thì không cần khóa)
+        // ==========================================================
         [RelayCommand] public void TapUserAvatar() { IsUserMenuVisible = !IsUserMenuVisible; }
         [RelayCommand] public void CloseUserMenu() { IsUserMenuVisible = false; }
-        [RelayCommand] public async Task OpenProfile() { IsUserMenuVisible = false; await Shell.Current.GoToAsync(nameof(ProfilePage)); }
-        [RelayCommand] public async Task OpenSettings() { IsUserMenuVisible = false; await Shell.Current.GoToAsync(nameof(SettingsPage)); }
         [RelayCommand] public async Task AddAccount() { await Shell.Current.DisplayAlert("Thông báo", "Tính năng đang phát triển", "OK"); }
         [RelayCommand] public async Task OpenWhatsNew() { IsUserMenuVisible = false; await Shell.Current.DisplayAlert("Mới", "Update tính năng Group Album!", "OK"); }
         [RelayCommand] public async Task OpenStats() { IsUserMenuVisible = false; await Shell.Current.DisplayAlert("Thống kê", "Bạn đã nghe nhạc rất nhiều!", "OK"); }

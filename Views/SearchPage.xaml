@@ -61,7 +61,7 @@
                        FontFamily="MontserratRegular"
                        VerticalOptions="Center"
                        Margin="5,0"
-                       ClearButtonVisibility="WhileEditing" 
+                      
                        ReturnCommand="{Binding PerformSearchCommand}">
                 </Entry>
 
@@ -165,20 +165,20 @@
                 </CollectionView>
             </Grid>
 
-            <Border IsVisible="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}"
+            <Border x:Name="MiniPlayerBorder"
+                    IsVisible="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}"
                     Margin="15,0,15,15" 
                     Padding="0"
                     Stroke="{StaticResource CosmicPink}"
-                    StrokeThickness="1"
+                    StrokeThickness="2"
                     BackgroundColor="#251035"
                     StrokeShape="RoundRectangle 20"
                     HeightRequest="70"
                     VerticalOptions="End">
 
                 <Border.Shadow>
-                    <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.5"/>
+                    <Shadow x:Name="MiniPlayerShadow" Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="5" Opacity="0.8"/>
                 </Border.Shadow>
-
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
                 </Border.GestureRecognizers>

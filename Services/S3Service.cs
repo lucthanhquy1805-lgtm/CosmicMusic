@@ -12,8 +12,8 @@ namespace CosmicMusic.Services
         // 👇 1. BẠN HÃY ĐIỀN LẠI MÃ AWS MỚI CỦA BẠN VÀO ĐÂY NHÉ 👇
         // (LƯU Ý: Nhớ xóa trắng 2 dòng Key này trước khi push lên GitHub lần sau nhé!)
         private readonly string _bucketName = "cosmic-music-store-admin";
-        private readonly string _accessKey = "MÃ_ACCESS_KEY_CỦA_BẠN";
-        private readonly string _secretKey = "MÃ_SECRET_KEY_CỦA_BẠN";
+        private readonly string _accessKey = "";
+        private readonly string _secretKey = "";
 
         // Vùng máy chủ Singapore của bạn
         private readonly Amazon.RegionEndpoint _region = Amazon.RegionEndpoint.APSoutheast1;
@@ -55,6 +55,46 @@ namespace CosmicMusic.Services
             {
                 System.Diagnostics.Debug.WriteLine($"❌ Lỗi Upload S3: {ex.Message}");
                 return null;
+            }
+        }
+        // ==========================================================
+        // BỔ SUNG: HÀM UPLOAD ẢNH LÊN S3 (Lưu vào thư mục images/)
+        // ==========================================================
+        public async Task<string> UploadImageAsync(Stream fileStream, string fileName)
+        {
+            if (fileStream == null) return null;
+
+            try
+            {
+                // Dùng chung Key với hàm UploadMp3Async
+                string safeAccess = Regex.Replace(_accessKey, @"[^\x20-\x7E]", "").Trim();
+                string safeSecret = Regex.Replace(_secretKey, @"[^\x20-\x7E]", "").Trim();
+                string safeBucket = Regex.Replace(_bucketName, @"[^a-z0-9\-]", "").Trim();
+
+                string safeFileName = Regex.Replace(fileName, @"[^a-zA-Z0-9_\-\.]", "");
+
+                // 👇 Ném ảnh vào thư mục "images" trên S3 cho gọn gàng
+                string uniqueFileName = $"images/{Guid.NewGuid():N}_{safeFileName}";
+
+                var credentials = new Amazon.Runtime.BasicAWSCredentials(safeAccess, safeSecret);
+                using var client = new AmazonS3Client(credentials, _region);
+                using var transferUtility = new TransferUtility(client);
+
+                var uploadRequest = new TransferUtilityUploadRequest
+                {
+                    InputStream = fileStream,
+                    Key = uniqueFileName,
+                    BucketName = safeBucket
+                };
+
+                await transferUtility.UploadAsync(uploadRequest);
+
+                return $"https://{safeBucket}.s3.{_region.SystemName}.amazonaws.com/{uniqueFileName}";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi Upload Ảnh S3: {ex.Message}");
+                return null; // Nếu lỗi thì trả về null để luồng chính biết
             }
         }
     }

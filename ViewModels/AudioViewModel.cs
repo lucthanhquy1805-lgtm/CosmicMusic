@@ -41,6 +41,14 @@ namespace CosmicMusic.ViewModels
 
             FavoriteColor = "#A569F7";
             IsFavorite = false;
+
+            WeakReferenceMessenger.Default.Register<PlayRequestedMessage>(this, (r, m) =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    PlaySong(m.SongToPlay);
+                });
+            });
         }
         private bool _isLrcLyrics = false;
 
@@ -175,6 +183,25 @@ namespace CosmicMusic.ViewModels
         public void PlaySong(Song song, ObservableCollection<Song>? contextList = null)
         {
             if (song == null) return;
+            bool isCurrentVip = Preferences.Get("IsPremium", false);
+            if (song.IsPremium && !isCurrentVip)
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    bool answer = await Shell.Current.DisplayAlert("Premium Content 👑", $"Bài hát '{song.Title}' chỉ dành cho tài khoản VIP. Bạn có muốn nâng cấp không?", "Xem gói VIP", "Bỏ qua");
+                    if (answer)
+                    {
+                        await Shell.Current.GoToAsync("PremiumPage"); // Chuyển đến trang mua VIP
+                    }
+                });
+
+                // NẾU ĐANG PHÁT DANH SÁCH (BẤM NEXT TRÚNG BÀI VIP) -> TỰ ĐỘNG BỎ QUA BÀI NÀY VÀ NHẢY BÀI TIẾP THEO
+                if (contextList != null && contextList.Count > 1)
+                {
+                    Next();
+                }
+                return; // 🔒 TỪ CHỐI PHÁT NHẠC
+            }
 
             bool isSameSong = (CurrentSong != null && CurrentSong.Title == song.Title);
             if (isSameSong && IsPlaying) return;
@@ -620,5 +647,24 @@ namespace CosmicMusic.ViewModels
                 WeakReferenceMessenger.Default.Send(new LyricScrolledMessage(SyncedLyrics[newIndex]));
             }
         }
+        [RelayCommand]
+        private async Task SeekToLyric(LyricLine selectedLyric)
+        {
+            if (selectedLyric == null || _mediaElement == null) return;
+
+            // ĐÃ SỬA: Đổi dấu CỘNG thành dấu TRỪ để logic khớp với thực tế
+            double targetSeconds = selectedLyric.Time.TotalSeconds - LyricsOffset;
+
+            // Đảm bảo không tua số âm (vượt quá đầu bài hát)
+            if (targetSeconds < 0) targetSeconds = 0;
+
+            // ĐÃ SỬA: Dùng đúng tên biến _mediaElement và hàm SeekTo(TimeSpan)
+            await _mediaElement.SeekTo(TimeSpan.FromSeconds(targetSeconds));
+
+            // Cập nhật lại thanh Slider cho đồng bộ ngay lập tức
+            CurrentPosition = TimeSpan.FromSeconds(targetSeconds);
+            OnPropertyChanged(nameof(CurrentPositionSeconds));
+        }
+
     }
 }

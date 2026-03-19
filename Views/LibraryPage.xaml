@@ -125,13 +125,13 @@
         <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" 
                            Color="{StaticResource CosmicPink}" VerticalOptions="Center" HorizontalOptions="Center"/>
 
-        <Border Grid.Row="1" Margin="15,0,15,20" Padding="0" Stroke="{StaticResource CosmicPink}" StrokeThickness="1"
+        <Border x:Name="MiniPlayerBorder" Grid.Row="1" Margin="15,0,15,20" Padding="0" 
+                Stroke="{StaticResource CosmicPink}" StrokeThickness="2"
                 BackgroundColor="#252535" StrokeShape="RoundRectangle 20" HeightRequest="70" VerticalOptions="End">
 
             <Border.Shadow>
-                <Shadow Brush="Black" Offset="0,8" Radius="15" Opacity="0.8"/>
+                <Shadow x:Name="MiniPlayerShadow" Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="5" Opacity="0.8"/>
             </Border.Shadow>
-
             <Border.Triggers>
                 <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="False">
                     <Setter Property="IsVisible" Value="False" />

@@ -614,6 +614,7 @@ namespace CosmicMusic.Services
                                 if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
                                     s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
+                                if (fields.TryGetProperty("isPremium", out var p) && p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
 
                                 songs.Add(s);
                             }
@@ -846,28 +847,14 @@ namespace CosmicMusic.Services
         // ==========================================================
         // 7. LẤY BÀI HÁT THEO ALBUM HOẶC CA SĨ (TÌM BẰNG ID CHUẨN)
         // ==========================================================
+        // 👇 ĐÃ NÂNG CẤP: Bắt mác VIP bất chấp nhập tay hay tool
         public async Task<List<Song>> GetSongsByAlbumIdAsync(string albumId)
         {
             var songs = new List<Song>();
             if (string.IsNullOrEmpty(albumId)) return songs;
 
             string runQueryUrl = $"{_baseUrl}:runQuery";
-            var query = new
-            {
-                structuredQuery = new
-                {
-                    from = new[] { new { collectionId = "songs" } },
-                    where = new
-                    {
-                        fieldFilter = new
-                        {
-                            field = new { fieldPath = "albumId" }, // 👈 TÌM BẰNG ID
-                            op = "EQUAL",
-                            value = new { stringValue = albumId }
-                        }
-                    }
-                }
-            };
+            var query = new { structuredQuery = new { from = new[] { new { collectionId = "songs" } }, where = new { fieldFilter = new { field = new { fieldPath = "albumId" }, op = "EQUAL", value = new { stringValue = albumId } } } } };
 
             try
             {
@@ -892,8 +879,16 @@ namespace CosmicMusic.Services
                                 if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
                                 if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+
                                 if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
                                     s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
+
+                                // 👇 BỘ LỌC VIP BẤT TỬ BẤT CHẤP KIỂU DỮ LIỆU
+                                if (fields.TryGetProperty("isPremium", out var p))
+                                {
+                                    if (p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
+                                    else if (p.TryGetProperty("stringValue", out var sv)) s.IsPremium = sv.GetString().ToLower() == "true";
+                                }
 
                                 if (!string.IsNullOrEmpty(s.AudioUrl)) songs.Add(s);
                             }
@@ -905,62 +900,79 @@ namespace CosmicMusic.Services
             return songs;
         }
 
+        // 👇 ĐÃ NÂNG CẤP: Tương thích ngược với cả Nhạc Cũ và Nhạc Mới
         public async Task<List<Song>> GetSongsByArtistIdAsync(string artistId)
         {
             var songs = new List<Song>();
             if (string.IsNullOrEmpty(artistId)) return songs;
 
             string runQueryUrl = $"{_baseUrl}:runQuery";
-            var query = new
-            {
-                structuredQuery = new
-                {
-                    from = new[] { new { collectionId = "songs" } },
-                    where = new
-                    {
-                        fieldFilter = new
-                        {
-                            field = new { fieldPath = "artistId" }, // 👈 TÌM BẰNG ID
-                            op = "EQUAL",
-                            value = new { stringValue = artistId }
-                        }
-                    }
-                }
-            };
+
+            // 1. TRUY VẤN KIỂU MỚI: Tìm trong mảng artistIds (Nhạc tải tự động)
+            var queryNew = new { structuredQuery = new { from = new[] { new { collectionId = "songs" } }, where = new { fieldFilter = new { field = new { fieldPath = "artistIds" }, op = "ARRAY_CONTAINS", value = new { stringValue = artistId } } } } };
+
+            // 2. TRUY VẤN KIỂU CŨ: Tìm trong chuỗi artistId (Nhạc up tay ngày xưa)
+            var queryOld = new { structuredQuery = new { from = new[] { new { collectionId = "songs" } }, where = new { fieldFilter = new { field = new { fieldPath = "artistId" }, op = "EQUAL", value = new { stringValue = artistId } } } } };
 
             try
             {
-                var content = new StringContent(JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(runQueryUrl, content);
+                var contentNew = new StringContent(JsonSerializer.Serialize(queryNew), Encoding.UTF8, "application/json");
+                var contentOld = new StringContent(JsonSerializer.Serialize(queryOld), Encoding.UTF8, "application/json");
 
-                if (response.IsSuccessStatusCode)
+                // Phóng 2 lính trinh sát đi tìm kiếm cùng một lúc cho nhanh
+                var taskNew = _httpClient.PostAsync(runQueryUrl, contentNew);
+                var taskOld = _httpClient.PostAsync(runQueryUrl, contentOld);
+
+                await Task.WhenAll(taskNew, taskOld);
+
+                // Hàm nội bộ để bóc tách JSON thành bài hát
+                async Task ParseResponseToSongs(HttpResponseMessage response)
                 {
-                    var json = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(json);
-
-                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    if (response.IsSuccessStatusCode)
                     {
-                        foreach (var item in doc.RootElement.EnumerateArray())
-                        {
-                            if (item.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
-                            {
-                                var s = new Song();
-                                s.Id = d.GetProperty("name").GetString().Split('/').Last();
-                                if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
-                                if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
-                                if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
-                                if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
-                                if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
-                                if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
-                                    s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
+                        var json = await response.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(json);
 
-                                if (!string.IsNullOrEmpty(s.AudioUrl)) songs.Add(s);
+                        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in doc.RootElement.EnumerateArray())
+                            {
+                                if (item.TryGetProperty("document", out var d) && d.TryGetProperty("fields", out var fields))
+                                {
+                                    var s = new Song();
+                                    s.Id = d.GetProperty("name").GetString().Split('/').Last();
+                                    if (fields.TryGetProperty("title", out var t)) s.Title = t.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("artist", out var a)) s.Artist = a.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("album", out var alb)) s.Album = alb.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
+                                    if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
+
+                                    if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
+                                        s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
+
+                                    // 👇 BỘ LỌC VIP BẤT TỬ BẤT CHẤP KIỂU DỮ LIỆU
+                                    if (fields.TryGetProperty("isPremium", out var p))
+                                    {
+                                        if (p.TryGetProperty("booleanValue", out var bv)) s.IsPremium = bv.GetBoolean();
+                                        else if (p.TryGetProperty("stringValue", out var sv)) s.IsPremium = sv.GetString().ToLower() == "true";
+                                    }
+
+                                    if (!string.IsNullOrEmpty(s.AudioUrl)) songs.Add(s);
+                                }
                             }
                         }
                     }
                 }
+
+                // Gom chiến lợi phẩm từ 2 lính trinh sát mang về
+                await ParseResponseToSongs(taskNew.Result);
+                await ParseResponseToSongs(taskOld.Result);
+
+                // Xóa các bài hát bị trùng lặp (Phòng khi bài hát cũ có cả 2 trường)
+                songs = songs.GroupBy(s => s.Id).Select(g => g.First()).ToList();
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc theo Ca sĩ: {ex.Message}"); }
+
             return songs;
         }
         // BỔ SUNG: Hàm lấy riêng Lyric từ database để tránh bị mất dữ liệu
@@ -1194,38 +1206,216 @@ namespace CosmicMusic.Services
 
             return list;
         }
+        
         // ==========================================================
-        // THÊM BÀI HÁT MỚI VÀO DATABASE
+        // CỖ MÁY: TÁCH CA SĨ VÀ NHẬN DIỆN THÔNG MINH (FUZZY MATCHING)
+        // ==========================================================
+        public async Task<List<string>> ProcessArtistsAsync(string rawArtistString, string coverUrl)
+        {
+            var resultIds = new List<string>();
+            if (string.IsNullOrWhiteSpace(rawArtistString)) return resultIds;
+
+            // 1. TÁCH TÊN CA SĨ TỰ ĐỘNG (Dựa vào các từ khóa kết hợp)
+            // Ví dụ: "Amee x B Ray, Masew" -> ["Amee", "B Ray", "Masew"]
+            string[] separators = { ",", "&", " x ", " ft.", " feat.", " ft ", " feat ", " x" };
+            var artistNames = rawArtistString.Split(separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            // 2. Kéo danh sách ca sĩ cũ về để "Nhận diện khuôn mặt"
+            var existingArtists = await GetAllArtistsAsync();
+
+            foreach (var name in artistNames)
+            {
+                // Chuẩn hóa tên (Xóa dấu, đưa về chữ thường) -> "Sơn Tùng M-TP" thành "son tung m-tp"
+                string normalizedSearchName = RemoveDiacritics(name.ToLower()).Trim();
+                string safeId = System.Text.RegularExpressions.Regex.Replace(normalizedSearchName.Replace(" ", "_"), @"[^a-z0-9_]", "");
+
+                // 3. TÌM KIẾM THÔNG MINH (FUZZY MATCH)
+                // Tìm xem có ca sĩ nào tên na ná không (Ví dụ: "son tung" nằm trong "son tung mtp" và ngược lại)
+                var matchedArtist = existingArtists.FirstOrDefault(a =>
+                {
+                    string normalizedDbName = RemoveDiacritics(a.Name.ToLower()).Trim();
+                    return normalizedDbName.Contains(normalizedSearchName) || normalizedSearchName.Contains(normalizedDbName);
+                });
+
+                if (matchedArtist != null)
+                {
+                    // ĐÃ CÓ NGƯỜI NÀY -> Bắt lấy ID của họ
+                    if (!resultIds.Contains(matchedArtist.Id)) resultIds.Add(matchedArtist.Id);
+                }
+                else
+                {
+                    // LÀ NGƯỜI MỚI -> Tạo luôn Profile mới trên Firebase
+                    string url = $"{_baseUrl}/artists/{safeId}";
+                    var payload = new
+                    {
+                        fields = new
+                        {
+                            name = new { stringValue = name },
+                            avatar = new { stringValue = coverUrl ?? "cover_chill.jpg" },
+                            bio = new { stringValue = "Nghệ sĩ tự động thêm từ hệ thống Cosmic." },
+                            followers = new { integerValue = 0 }
+                        }
+                    };
+                    var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                    await _httpClient.PatchAsync(url, content); // Đẩy lên Firebase
+
+                    if (!resultIds.Contains(safeId)) resultIds.Add(safeId);
+                }
+            }
+
+            return resultIds; // Trả về 1 mảng gồm nhiều ID ca sĩ
+        }
+     
+        // ==========================================================
+        // THÊM BÀI HÁT MỚI VÀO KHO NHẠC CHUNG (Đã tối ưu Đa Ca Sĩ & Thể Loại)
         // ==========================================================
         public async Task<bool> AddSongAsync(Song song)
         {
             try
             {
-                string url = $"{_baseUrl}/songs";
+                // 1. Nếu bài hát chưa có ID, tự động tạo một ID mới chuẩn xác
+                if (string.IsNullOrEmpty(song.Id))
+                {
+                    song.Id = Guid.NewGuid().ToString("N");
+                }
+
+                // 2. Tạo mảng JSON cho danh sách nhiều ID ca sĩ
+                object artistIdsArray = song.ArtistIds != null && song.ArtistIds.Count > 0
+                    ? new { values = song.ArtistIds.Select(id => new { stringValue = id }).ToArray() }
+                    : new { values = new[] { new { stringValue = song.ArtistId ?? "" } } };
+
+                // 3. Xử lý Thể loại (Genre): Ưu tiên lấy từ bài hát, nếu không có thì mặc định là pop
+                string finalGenreId = string.IsNullOrEmpty(song.GenreId) ? "genre_pop" : song.GenreId;
+
+                // 4. Dùng REST API (PATCH) để lưu theo ID chúng ta vừa tạo
+                string url = $"{_baseUrl}/songs/{song.Id}";
+
                 var payload = new
                 {
                     fields = new
                     {
+                        songId = new { stringValue = song.Id },
                         title = new { stringValue = song.Title ?? "Unknown" },
                         artist = new { stringValue = song.Artist ?? "Unknown" },
-                        coverImage = new { stringValue = song.CoverImage ?? "" },
+                        artistId = new { stringValue = song.ArtistId ?? "" }, // Lưu ID người đầu tiên làm đại diện
+
+                        // 👇 Mảng chứa TẤT CẢ ca sĩ tham gia bài hát
+                        artistIds = new { arrayValue = artistIdsArray },
+
+                        album = new { stringValue = song.Album ?? "Unknown Album" },
+                        coverImage = new { stringValue = song.CoverImage ?? "cover_chill.jpg" },
                         audioUrl = new { stringValue = song.AudioUrl ?? "" },
-                        genreId = new { stringValue = "genre_pop" }, // Mặc định gán vào mục Pop
+                        lyrics = new { stringValue = song.Lyrics ?? "" },
+                        duration = new { integerValue = (int)song.Duration },
+
+                        // 👇 Thể loại giờ đã là ĐỘNG (Dynamic)
+                        genreId = new { stringValue = finalGenreId },
+
                         isPremium = new { booleanValue = song.IsPremium },
-                        isFeatured = new { booleanValue = false }
+                        isFeatured = new { booleanValue = false },
+                        likeCount = new { integerValue = song.LikeCount }
                     }
                 };
 
                 var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(url, content);
 
-                return response.IsSuccessStatusCode;
+                var response = await _httpClient.PatchAsync(url, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"✅ Đã lưu bài hát lên Firestore: {song.Title}");
+                    return true;
+                }
+                else
+                {
+                    string err = await response.Content.ReadAsStringAsync();
+                    System.Diagnostics.Debug.WriteLine($"❌ Firestore báo lỗi: {err}");
+                    return false;
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Lỗi thêm bài hát: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi AddSongAsync: {ex.Message}");
                 return false;
             }
+        }
+      
+        // ==========================================================
+        // CỖ MÁY: KIỂM TRA, DỊCH THUẬT VÀ TẠO THỂ LOẠI MỚI (GENRES)
+        // ==========================================================
+        public async Task<string> CheckAndCreateGenreAsync(string rawGenreName)
+        {
+            if (string.IsNullOrWhiteSpace(rawGenreName)) rawGenreName = "Pop";
+
+            string lowerName = rawGenreName.ToLower();
+            string finalGenreId = "";
+            string finalDisplayName = rawGenreName; // Tên sẽ hiện trên Firebase
+
+            // 👇 BỘ TỪ ĐIỂN DỊCH THUẬT (Gom các thể loại lắt nhắt về nhóm lớn) 👇
+            if (lowerName.Contains("rap") || lowerName.Contains("hip-hop") || lowerName.Contains("hiphop"))
+            {
+                finalGenreId = "genre_rap";
+                finalDisplayName = "Rap / Hip-Hop";
+            }
+            else if (lowerName.Contains("pop") || lowerName.Contains("ballad"))
+            {
+                // Gom cả Pop và Ballad vào 1 rổ
+                finalGenreId = "genre_pop";
+                finalDisplayName = "Pop / Ballad";
+            }
+            else if (lowerName.Contains("r&b") || lowerName.Contains("rnb"))
+            {
+                finalGenreId = "genre_rnb";
+                finalDisplayName = "R&B";
+            }
+            else if (lowerName.Contains("rock") || lowerName.Contains("metal"))
+            {
+                finalGenreId = "genre_rock";
+                finalDisplayName = "Rock";
+            }
+            else if (lowerName.Contains("k-pop") || lowerName.Contains("kpop"))
+            {
+                finalGenreId = "genre_kpop";
+                finalDisplayName = "K-Pop";
+            }
+            else
+            {
+                // Nếu là một thể loại hoàn toàn lạ, dùng Regex để tự tạo ID như cũ
+                string cleanString = System.Text.RegularExpressions.Regex.Replace(lowerName, @"[^a-z0-9]", "");
+                finalGenreId = $"genre_{cleanString}";
+            }
+            // 👆 ======================================================== 👆
+
+            string url = $"{_baseUrl}/genres/{finalGenreId}";
+
+            try
+            {
+                // Lên Firebase kiểm tra xem ID này (VD: genre_rap) đã có chưa?
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    return finalGenreId; // ĐÃ CÓ -> Trả về ID luôn
+                }
+
+                // NẾU CHƯA CÓ -> TỰ ĐỘNG TẠO MỚI!
+                var payload = new
+                {
+                    fields = new
+                    {
+                        name = new { stringValue = finalDisplayName },
+                        coverImage = new { stringValue = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=600&auto=format&fit=crop" }
+                    }
+                };
+
+                var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                await _httpClient.PatchAsync(url, content);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi tạo Genre tự động: {ex.Message}");
+            }
+
+            return finalGenreId;
         }
     }
 

@@ -134,13 +134,14 @@
                      HorizontalOptions="Start" VerticalOptions="Start" Margin="15,10" HeightRequest="40" WidthRequest="40"
                      BackgroundColor="#33000000" CornerRadius="20" Command="{Binding GoBackCommand}"/>
 
-        <Border Grid.Row="1" Margin="15,0,15,15" Padding="0" 
-                Stroke="{StaticResource CosmicPink}" StrokeThickness="1" 
+        <Border x:Name="MiniPlayerBorder"
+                Grid.Row="1" Margin="15,0,15,15" Padding="0" 
+                Stroke="{StaticResource CosmicPink}" StrokeThickness="2" 
                 BackgroundColor="#251035" StrokeShape="RoundRectangle 20" HeightRequest="70" VerticalOptions="End">
-            <Border.Shadow>
-                <Shadow Brush="Black" Offset="0,5" Radius="15" Opacity="0.5"/>
-            </Border.Shadow>
 
+            <Border.Shadow>
+                <Shadow x:Name="MiniPlayerShadow" Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="5" Opacity="0.8"/>
+            </Border.Shadow>
             <Border.Triggers>
                 <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="False">
                     <Setter Property="IsVisible" Value="False" />

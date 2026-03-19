@@ -14,6 +14,8 @@
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
             <Color x:Key="CosmicPink">#D946EF</Color>
 
+            <x:String x:Key="IconPrevious">M6,6H8V18H6M9.5,12L18,18V6</x:String>
+            <x:String x:Key="IconNext">M16,18H18V6H16M6,18L14.5,12L6,6</x:String>
             <x:String x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</x:String>
             <x:String x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</x:String>
         </ResourceDictionary>
@@ -106,46 +108,48 @@
             </Grid>
         </Grid>
 
-        <Border IsVisible="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}"
+        <Border x:Name="MiniPlayerBorder"
+                IsVisible="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}"
                 Margin="15,0,15,15" 
                 Padding="0"
                 Stroke="{StaticResource CosmicPink}"
-                StrokeThickness="1"
+                StrokeThickness="2"
                 BackgroundColor="#251035"
-                StrokeShape="RoundRectangle 12"
-                HeightRequest="65"
+                StrokeShape="RoundRectangle 20"
+                HeightRequest="70"
                 VerticalOptions="End">
 
             <Border.Shadow>
-                <Shadow Brush="Black" Offset="0,4" Radius="10" Opacity="0.7"/>
+                <Shadow x:Name="MiniPlayerShadow" Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="5" Opacity="0.8"/>
             </Border.Shadow>
 
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding NavigateToPlayerCommand}" />
             </Border.GestureRecognizers>
 
-            <Grid ColumnDefinitions="60, *, 40, 40" ColumnSpacing="0">
-                <Border Grid.Column="0" Padding="0" StrokeShape="RoundRectangle 8" Margin="8" StrokeThickness="0" BackgroundColor="Transparent">
+            <Grid ColumnDefinitions="65, *, 40, 40, 40" ColumnSpacing="0" Margin="0,0,10,0">
+
+                <Border Grid.Column="0" Padding="0" StrokeShape="RoundRectangle 15" Margin="5" StrokeThickness="0" BackgroundColor="Transparent">
                     <Image Source="{Binding AudioPlayer.CurrentSong.CoverImage}" Aspect="AspectFill"/>
                 </Border>
 
-                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0" Margin="5,0">
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2" Margin="5,0">
                     <Label Text="{Binding AudioPlayer.CurrentSong.Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" LineBreakMode="TailTruncation"/>
-                    <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#BBB" LineBreakMode="TailTruncation"/>
+                    <Label Text="{Binding AudioPlayer.CurrentSong.Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#AAA" LineBreakMode="TailTruncation"/>
                 </VerticalStackLayout>
 
                 <Grid Grid.Column="2" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                     <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding AudioPlayer.ToggleFavoriteCommand}"/>
+                        <TapGestureRecognizer Command="{Binding AudioPlayer.PreviousCommand}"/>
                     </Grid.GestureRecognizers>
-                    <Label Text="❤" TextColor="{Binding AudioPlayer.FavoriteColor}" FontSize="18" VerticalOptions="Center" HorizontalOptions="Center"/>
+                    <Path Data="{StaticResource IconPrevious}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
                 </Grid>
 
-                <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40" Margin="0,0,5,0">
+                <Grid Grid.Column="3" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
                     <Grid.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding AudioPlayer.PlayPauseCommand}"/>
                     </Grid.GestureRecognizers>
-                    <Path Data="{StaticResource IconPlay}" Fill="White" Aspect="Uniform" HeightRequest="20" WidthRequest="20" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Path Data="{StaticResource IconPlay}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" VerticalOptions="Center">
                         <Path.Triggers>
                             <DataTrigger TargetType="Path" Binding="{Binding AudioPlayer.IsPlaying}" Value="True">
                                 <Setter Property="Data" Value="{StaticResource IconPause}"/>
@@ -153,8 +157,15 @@
                         </Path.Triggers>
                     </Path>
                 </Grid>
+
+                <Grid Grid.Column="4" BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="40" HeightRequest="40">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding AudioPlayer.NextCommand}"/>
+                    </Grid.GestureRecognizers>
+                    <Path Data="{StaticResource IconNext}" Fill="{StaticResource CosmicPink}" Aspect="Uniform" HeightRequest="18" WidthRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                </Grid>
+
             </Grid>
         </Border>
-
     </Grid>
 </ContentPage>

@@ -24,6 +24,7 @@ namespace CosmicMusic.Models
 
         // --- 2. CÁC TRƯỜNG MỚI ĐỂ LIÊN KẾT 10 COLLECTION (CHUẨN FIREBASE) ---
         public string ArtistId { get; set; }    // Khóa ngoại nối đến bảng 'artists'
+        public List<string> ArtistIds { get; set; } = new List<string>();
         public string AlbumId { get; set; }     // Khóa ngoại nối đến bảng 'albums'
         public string GenreId { get; set; }     // Khóa ngoại nối đến bảng 'genres'
         public string GenreName { get; set; }   // Tên thể loại (Ví dụ: Rap, Pop)
@@ -32,6 +33,7 @@ namespace CosmicMusic.Models
         public bool IsPremium { get; set; }     // Bài VIP 
         public bool IsFeatured { get; set; }    // Bài nổi bật hiện Home
         public bool IsFavorite { get; set; }    // Trạng thái yêu thích (Local)
+        public bool IsAdded { get; set; }
 
         public int LikeCount { get; set; } = 0; // Lượt thả tim
         public int PlayCount { get; set; } = 0; // Số lượt nghe

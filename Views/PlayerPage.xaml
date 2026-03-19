@@ -36,7 +36,6 @@
                IsVisible="{Binding IsLyricsVisible}"/>
 
         <BoxView Color="Black"
-
                  Opacity="0.6"
                  IsVisible="{Binding IsLyricsVisible}"/>
 
@@ -76,9 +75,9 @@
 
                 <Grid IsVisible="{Binding IsLyricsVisible, Converter={StaticResource InvertedBoolConverter}}"
                       VerticalOptions="Center" HorizontalOptions="Center">
-                    <Border StrokeShape="RoundRectangle 20" StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="280" WidthRequest="280" BackgroundColor="#251035">
+                    <Border x:Name="AlbumArtBorder" StrokeShape="RoundRectangle 20" StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="280" WidthRequest="280" BackgroundColor="#251035">
                         <Border.Shadow>
-                            <Shadow Brush="{StaticResource CosmicPink}" Offset="0,10" Radius="30" Opacity="0.5"/>
+                            <Shadow x:Name="AlbumArtShadow" Brush="{StaticResource CosmicPink}" Offset="0,10" Radius="30" Opacity="0.5"/>
                         </Border.Shadow>
                         <Image Source="{Binding CurrentSong.CoverImage, TargetNullValue='cover_chill.jpg'}" Aspect="AspectFill"/>
                     </Border>
@@ -91,9 +90,7 @@
                       BackgroundColor="Transparent">
 
                     <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" HeightRequest="40" Margin="0,0,0,10">
-
                         <Label Grid.Column="0" Text="LYRICS" TextColor="#AAFFFFFF" VerticalOptions="Center" FontSize="12" FontAttributes="Bold" CharacterSpacing="2"/>
-
                         <Border Grid.Column="1" BackgroundColor="#44000000" StrokeThickness="1" Stroke="#33FFFFFF" StrokeShape="RoundRectangle 15"
                                 Padding="8,0" HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="28"
                                 IsVisible="{Binding IsEditingLyrics, Converter={StaticResource InvertedBoolConverter}}">
@@ -103,9 +100,7 @@
                                         <TapGestureRecognizer Command="{Binding LyricsSlowerCommand}"/>
                                     </Label.GestureRecognizers>
                                 </Label>
-
                                 <Label Text="{Binding LyricsOffset, StringFormat='{0:F1}s'}" TextColor="#00E5FF" FontSize="11" FontAttributes="Bold" VerticalOptions="Center" WidthRequest="32" HorizontalTextAlignment="Center"/>
-
                                 <Label Text="+" TextColor="White" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" Margin="0,-2,0,0">
                                     <Label.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding LyricsFasterCommand}"/>
@@ -113,7 +108,6 @@
                                 </Label>
                             </HorizontalStackLayout>
                         </Border>
-
                         <ImageButton Command="{Binding ToggleEditLyricsCommand}"
                                      Grid.Column="2"
                                      HeightRequest="24" WidthRequest="24"
@@ -143,10 +137,16 @@
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:LyricLine">
                                     <Label Text="{Binding Text}" 
-                                           HorizontalTextAlignment="Center"
-                                           LineHeight="1.5"
-                                           Margin="0,8"
-                                           FontFamily="MontserratBold">
+           HorizontalTextAlignment="Center"
+           LineHeight="1.5"
+           Margin="0,8"
+           FontFamily="MontserratBold">
+
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer 
+                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AudioViewModel}}, Path=SeekToLyricCommand}" 
+                CommandParameter="{Binding .}"/>
+                                        </Label.GestureRecognizers>
                                         <Label.Triggers>
                                             <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
                                                 <Setter Property="TextColor" Value="White"/>

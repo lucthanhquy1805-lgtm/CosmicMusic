@@ -65,7 +65,7 @@
                     <VerticalStackLayout Spacing="15" Margin="0,0,0,10" IsVisible="{Binding HasRecentlyPlayed}">
                         <Label Text="Nghe gần đây" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF" Margin="20,0"/>
 
-                        <CollectionView ItemsSource="{Binding RecentlyPlayed}" HeightRequest="180">
+                        <CollectionView x:Name="RecentList" ItemsSource="{Binding RecentlyPlayed}" HeightRequest="180">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
                             </CollectionView.ItemsLayout>
@@ -104,7 +104,7 @@
 
                     <VerticalStackLayout Spacing="15">
                         <Label Text="Featured Albums" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF" Margin="20,0"/>
-                        <CollectionView ItemsSource="{Binding FeaturedAlbums}" HeightRequest="240">
+                        <CollectionView x:Name="AlbumList" ItemsSource="{Binding FeaturedAlbums}" HeightRequest="240">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
                             </CollectionView.ItemsLayout>
@@ -139,7 +139,7 @@
 
                     <VerticalStackLayout Spacing="15">
                         <Label Text="Top Artists" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF" Margin="20,0"/>
-                        <CollectionView ItemsSource="{Binding TopArtists}" HeightRequest="160">
+                        <CollectionView x:Name="ArtistList" ItemsSource="{Binding TopArtists}" HeightRequest="160">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
                             </CollectionView.ItemsLayout>
@@ -170,13 +170,13 @@
                 </VerticalStackLayout>
             </ScrollView>
 
-            <Border Grid.Row="1" Margin="15,0,15,15" Padding="0" 
-                    Stroke="{StaticResource CosmicPink}" StrokeThickness="1" 
+            <Border x:Name="MiniPlayerBorder" Grid.Row="1" Margin="15,0,15,15" Padding="0" 
+                    Stroke="{StaticResource CosmicPink}" StrokeThickness="2" 
                     BackgroundColor="#251035" StrokeShape="RoundRectangle 20" HeightRequest="70" VerticalOptions="End">
-                <Border.Shadow>
-                    <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.5"/>
-                </Border.Shadow>
 
+                <Border.Shadow>
+                    <Shadow x:Name="MiniPlayerShadow" Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="5" Opacity="0.8"/>
+                </Border.Shadow>
                 <Border.Triggers>
                     <DataTrigger TargetType="Border" Binding="{Binding AudioPlayer.CurrentSong, Converter={StaticResource IsNotNullConverter}}" Value="False">
                         <Setter Property="IsVisible" Value="False" />
@@ -255,14 +255,15 @@
                 </Grid>
                 <ScrollView Grid.Row="1">
                     <VerticalStackLayout Spacing="25">
-                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15" BackgroundColor="Transparent">
                             <Path Grid.Column="0" Data="{StaticResource IconPlus}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
                             <Label Grid.Column="1" Text="Thêm tài khoản" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding AddAccountCommand}"/>
                             </Grid.GestureRecognizers>
                         </Grid>
-                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15">
+
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15" BackgroundColor="Transparent">
                             <Path Grid.Column="0" Data="{StaticResource IconLogout}" Fill="White" Aspect="Uniform" HeightRequest="22"/>
                             <Label Grid.Column="1" Text="Đăng xuất" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
                             <Grid.GestureRecognizers>

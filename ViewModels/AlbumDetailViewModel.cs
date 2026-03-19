@@ -16,7 +16,6 @@ namespace CosmicMusic.ViewModels
 {
     public partial class AlbumDetailViewModel : ObservableObject, IQueryAttributable
     {
-        // 👇 ĐÃ SỬA: Bỏ hoàn toàn _musicApiService, chỉ dùng _firestoreService
         private readonly FirestoreService _firestoreService;
 
         // MiniPlayer needs this
@@ -36,7 +35,6 @@ namespace CosmicMusic.ViewModels
 
         public ObservableCollection<Song> Songs { get; } = new();
 
-        // 👇 ĐÃ SỬA: Hàm khởi tạo chỉ nhận FirestoreService
         public AlbumDetailViewModel(FirestoreService firestoreService, AudioViewModel audioPlayer)
         {
             _firestoreService = firestoreService;
@@ -82,7 +80,7 @@ namespace CosmicMusic.ViewModels
                     }
 
                     IsAlbumType = true;
-                    await LoadSongsFromGlobal(); // 👇 Gọi hàm tải nhạc bên dưới
+                    await LoadSongsFromGlobal();
                 }
             }
             // CASE 2: Received from Library Page (Personal Playlist)
@@ -131,7 +129,6 @@ namespace CosmicMusic.ViewModels
             finally { IsBusy = false; }
         }
 
-        // 👇👇👇 ĐÃ SỬA LẠI HOÀN TOÀN ĐỂ KHÔNG BỊ CRASH 👇👇👇
         private async Task LoadSongsFromGlobal()
         {
             IsBusy = true;
@@ -141,7 +138,6 @@ namespace CosmicMusic.ViewModels
                 int totalLikes = 0;
                 List<Song> fetchedSongs = new List<Song>();
 
-                // 👇 ĐÃ SỬA: Tìm bằng ID của Album/Artist thay vì Tên
                 if (_currentType == "Artist")
                 {
                     // Lấy bài hát theo ID Nghệ sĩ
@@ -162,7 +158,6 @@ namespace CosmicMusic.ViewModels
                     }
                 }
 
-                // Cập nhật SubTitle với số Like
                 UpdateTotalLikesSubtitle();
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi LoadSongsFromGlobal: {ex.Message}"); }
@@ -196,101 +191,171 @@ namespace CosmicMusic.ViewModels
         }
 
         // ==========================================================
-        // 4. LỆNH ĐIỀU KHIỂN & TƯƠNG TÁC
+        // 4. LỆNH ĐIỀU KHIỂN & TƯƠNG TÁC (ĐÃ BỌC THÉP VIP VÀ CHỐNG SPAM)
         // ==========================================================
+        private bool _isNavigating = false; // 🔒 Ổ khóa chống click đúp
 
         [RelayCommand]
         public async Task PlaySong(Song song)
         {
-            if (song == null) return;
+            if (song == null || _isNavigating) return;
 
-            bool isCurrentVip = Preferences.Get("IsPremium", false);
-            if (song.IsPremium && !isCurrentVip)
+            try
             {
-                bool answer = await Shell.Current.DisplayAlert("Premium Content 🔒", "Bài này dành cho VIP. Nâng cấp nhé?", "Xem gói VIP", "Để sau");
-                if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
-                return;
-            }
+                _isNavigating = true;
 
-            AudioPlayer.PlaySong(song, Songs);
-            await Shell.Current.GoToAsync(nameof(PlayerPage));
+                // KIỂM TRA QUYỀN LỰC VIP
+                bool isCurrentVip = Preferences.Get("IsPremium", false);
+                if (song.IsPremium && !isCurrentVip)
+                {
+                    bool answer = await Shell.Current.DisplayAlert("Premium Content 👑", "Bài này dành cho VIP. Nâng cấp nhé?", "Xem gói VIP", "Để sau");
+                    if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
+                    return; // 🛑 CHẶN KHÔNG CHO PHÁT
+                }
+
+                AudioPlayer.PlaySong(song, Songs);
+                await Shell.Current.GoToAsync(nameof(PlayerPage));
+            }
+            finally
+            {
+                await Task.Delay(500);
+                _isNavigating = false;
+            }
         }
 
         [RelayCommand]
         public async Task PlayAll()
         {
-            if (Songs == null || Songs.Count == 0) return;
+            if (Songs == null || Songs.Count == 0 || _isNavigating) return;
 
-            bool isVip = Preferences.Get("IsPremium", false);
-            var playableSongs = new ObservableCollection<Song>();
-
-            if (isVip)
+            try
             {
-                foreach (var s in Songs) playableSongs.Add(s);
-            }
-            else
-            {
-                var freeSongs = Songs.Where(s => !s.IsPremium).ToList();
-                foreach (var s in freeSongs) playableSongs.Add(s);
-            }
+                _isNavigating = true;
 
-            if (playableSongs.Count == 0)
-            {
-                bool answer = await Shell.Current.DisplayAlert("Premium Album 👑", "Toàn bộ bài hát trong danh sách này dành riêng cho VIP. Nâng cấp ngay?", "Nâng cấp", "Đóng");
-                if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
-                return;
-            }
+                bool isVip = Preferences.Get("IsPremium", false);
+                var playableSongs = new ObservableCollection<Song>();
 
-            if (!isVip && playableSongs.Count < Songs.Count)
-            {
-                await Shell.Current.DisplayAlert("Lưu ý", "Bạn đang dùng tài khoản thường. Hệ thống chỉ phát các bài miễn phí trong danh sách này.", "OK");
-            }
+                // BỘ LỌC CỨNG: Tách hẳn một danh sách chỉ chứa những bài được phép nghe
+                if (isVip)
+                {
+                    foreach (var s in Songs) playableSongs.Add(s); // VIP được nghe hết
+                }
+                else
+                {
+                    var freeSongs = Songs.Where(s => !s.IsPremium).ToList(); // Dân thường chỉ lấy bài không có mác Premium
+                    foreach (var s in freeSongs) playableSongs.Add(s);
+                }
 
-            AudioPlayer.IsShuffle = false;
-            AudioPlayer.PlaySong(playableSongs[0], playableSongs);
-            await Shell.Current.GoToAsync(nameof(PlayerPage));
+                // Nếu Album toàn là bài VIP mà user không phải VIP
+                if (playableSongs.Count == 0)
+                {
+                    bool answer = await Shell.Current.DisplayAlert("Premium Album 👑", "Toàn bộ bài hát trong danh sách này dành riêng cho VIP. Nâng cấp ngay?", "Nâng cấp", "Đóng");
+                    if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
+                    return; // 🛑 CHẶN KHÔNG CHO PHÁT
+                }
+
+                // Nếu có trộn lẫn cả VIP và Thường
+                if (!isVip && playableSongs.Count < Songs.Count)
+                {
+                    await Shell.Current.DisplayAlert("Lưu ý", "Bạn đang dùng tài khoản thường. Hệ thống chỉ phát các bài miễn phí trong danh sách này.", "OK");
+                }
+
+                AudioPlayer.IsShuffle = false;
+
+                // QUAN TRỌNG NHẤT: Bơm cái danh sách ĐÃ ĐƯỢC LỌC (playableSongs) cho Nhạc trưởng.
+                // Từ giờ Nhạc trưởng có tự động Next cũng không bao giờ đụng tới bài VIP!
+                AudioPlayer.PlaySong(playableSongs[0], playableSongs);
+                await Shell.Current.GoToAsync(nameof(PlayerPage));
+            }
+            finally
+            {
+                await Task.Delay(500);
+                _isNavigating = false;
+            }
         }
 
         [RelayCommand]
         public async Task ShuffleAll()
         {
-            if (Songs == null || Songs.Count == 0) return;
+            if (Songs == null || Songs.Count == 0 || _isNavigating) return;
 
-            bool isVip = Preferences.Get("IsPremium", false);
-            var playableSongs = new ObservableCollection<Song>();
-
-            if (isVip)
+            try
             {
-                foreach (var s in Songs) playableSongs.Add(s);
+                _isNavigating = true;
+
+                bool isVip = Preferences.Get("IsPremium", false);
+                var playableSongs = new ObservableCollection<Song>();
+
+                // Lọc danh sách giống hệt hàm PlayAll
+                if (isVip)
+                {
+                    foreach (var s in Songs) playableSongs.Add(s);
+                }
+                else
+                {
+                    var freeSongs = Songs.Where(s => !s.IsPremium).ToList();
+                    foreach (var s in freeSongs) playableSongs.Add(s);
+                }
+
+                if (playableSongs.Count == 0)
+                {
+                    bool answer = await Shell.Current.DisplayAlert("Premium Album 👑", "Danh sách này chỉ dành cho VIP. Nâng cấp nhé?", "Nâng cấp", "Đóng");
+                    if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
+                    return;
+                }
+
+                if (!isVip && playableSongs.Count < Songs.Count)
+                {
+                    await Shell.Current.DisplayAlert("Lưu ý", "Chỉ phát ngẫu nhiên các bài miễn phí.", "OK");
+                }
+
+                var r = new Random();
+                int index = r.Next(playableSongs.Count);
+
+                AudioPlayer.IsShuffle = true;
+
+                // QUAN TRỌNG: Nhạc trưởng chỉ nhận danh sách bài được phép nghe!
+                AudioPlayer.PlaySong(playableSongs[index], playableSongs);
+                await Shell.Current.GoToAsync(nameof(PlayerPage));
             }
-            else
+            finally
             {
-                var freeSongs = Songs.Where(s => !s.IsPremium).ToList();
-                foreach (var s in freeSongs) playableSongs.Add(s);
+                await Task.Delay(500);
+                _isNavigating = false;
             }
-
-            if (playableSongs.Count == 0)
-            {
-                bool answer = await Shell.Current.DisplayAlert("Premium Album 👑", "Danh sách này chỉ dành cho VIP. Nâng cấp nhé?", "Nâng cấp", "Đóng");
-                if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
-                return;
-            }
-
-            if (!isVip && playableSongs.Count < Songs.Count)
-            {
-                await Shell.Current.DisplayAlert("Lưu ý", "Chỉ phát ngẫu nhiên các bài miễn phí.", "OK");
-            }
-
-            var r = new Random();
-            int index = r.Next(playableSongs.Count);
-
-            AudioPlayer.IsShuffle = true;
-            AudioPlayer.PlaySong(playableSongs[index], playableSongs);
-            await Shell.Current.GoToAsync(nameof(PlayerPage));
         }
 
-        [RelayCommand] public async Task NavigateToPlayer() => await Shell.Current.GoToAsync(nameof(PlayerPage));
-        [RelayCommand] public async Task GoBack() => await Shell.Current.GoToAsync("..");
+        [RelayCommand]
+        public async Task NavigateToPlayer()
+        {
+            if (_isNavigating || _audioPlayer.CurrentSong == null) return;
+            try
+            {
+                _isNavigating = true;
+                await Shell.Current.GoToAsync(nameof(PlayerPage));
+            }
+            finally
+            {
+                await Task.Delay(500);
+                _isNavigating = false;
+            }
+        }
+
+        [RelayCommand]
+        public async Task GoBack()
+        {
+            if (_isNavigating) return;
+            try
+            {
+                _isNavigating = true;
+                await Shell.Current.GoToAsync("..");
+            }
+            finally
+            {
+                await Task.Delay(500);
+                _isNavigating = false;
+            }
+        }
 
         [RelayCommand]
         public async Task OpenOptionMenu(Song song)

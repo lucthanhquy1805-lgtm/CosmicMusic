@@ -41,6 +41,7 @@ namespace CosmicMusic.Services
             }
         }
 
+        
         // --- NGUỒN 1: LRCLIB ---
         private async Task<string> GetFromLrcLib(string title, string artist)
         {
@@ -58,12 +59,16 @@ namespace CosmicMusic.Services
                     {
                         foreach (var item in jsonList.EnumerateArray())
                         {
-                            // Lấy bài nào có lời (plainLyrics)
-                            if (item.TryGetProperty("plainLyrics", out var l) && !string.IsNullOrEmpty(l.GetString()))
+                            // 🔥 ƯU TIÊN 1: Tìm lời bài hát đồng bộ (LRC format)
+                            if (item.TryGetProperty("syncedLyrics", out var synced) && !string.IsNullOrEmpty(synced.GetString()))
                             {
-                                // (Tùy chọn) Kiểm tra xem tên bài hát có khớp tương đối không để tránh lấy nhầm
-                                // Nhưng hiện tại cứ lấy kết quả đầu tiên cho dễ trúng
-                                return l.GetString();
+                                return synced.GetString();
+                            }
+
+                            // 🔥 ƯU TIÊN 2: Nếu không có LRC, lấy tạm lời bài hát thô
+                            else if (item.TryGetProperty("plainLyrics", out var plain) && !string.IsNullOrEmpty(plain.GetString()))
+                            {
+                                return plain.GetString();
                             }
                         }
                     }
