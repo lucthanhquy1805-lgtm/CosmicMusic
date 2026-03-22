@@ -23,6 +23,11 @@ namespace CosmicMusic.ViewModels
         public LyricLine CurrentLine { get; set; }
         public LyricScrolledMessage(LyricLine line) => CurrentLine = line;
     }
+    public class MediaControlMessage
+    {
+        public string Action { get; set; }
+        public MediaControlMessage(string action) => Action = action;
+    }
 
     public partial class AudioViewModel : ObservableObject
     {
@@ -47,6 +52,24 @@ namespace CosmicMusic.ViewModels
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     PlaySong(m.SongToPlay);
+                });
+            });
+            WeakReferenceMessenger.Default.Register<MediaControlMessage>(this, (r, m) =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    if (m.Action == "PLAY_PAUSE") PlayPause();
+                    else if (m.Action == "NEXT") Next();
+                    else if (m.Action == "PREV") Previous();
+
+                    // 👇 THÊM ĐOẠN NÀY ĐỂ BẮT LỆNH TUA NHẠC 👇
+                    else if (m.Action != null && m.Action.StartsWith("SEEK:"))
+                    {
+                        if (long.TryParse(m.Action.Substring(5), out long ms))
+                        {
+                            SeekFromBackground(ms);
+                        }
+                    }
                 });
             });
         }
@@ -159,6 +182,9 @@ namespace CosmicMusic.ViewModels
         private void OnMediaOpened(object sender, EventArgs e)
         {
             if (_mediaElement != null) Duration = _mediaElement.Duration;
+
+            // THÊM ĐÚNG 1 DÒNG NÀY LÀ THANH THỜI GIAN HẾT ĐƠ
+            UpdateAndroidService();
         }
 
         private void OnPositionChanged(object sender, MediaPositionChangedEventArgs e)
@@ -234,6 +260,14 @@ namespace CosmicMusic.ViewModels
                 if (!isSameSong) _mediaElement.Source = MediaSource.FromUri(song.AudioUrl);
                 _mediaElement.Play();
                 WeakReferenceMessenger.Default.Send(new SongPlayedMessage(song));
+
+                
+                UpdateAndroidService();
+                Task.Run(async () =>
+                {
+                    await Task.Delay(1000);
+                    MainThread.BeginInvokeOnMainThread(() => UpdateAndroidService());
+                });
             }
 
             // 👇👇 BỔ SUNG QUAN TRỌNG: Nếu bài hát ĐÃ CÓ SẴN LỜI (Từ Firebase), thì nạp vào Karaoke luôn!
@@ -398,7 +432,16 @@ namespace CosmicMusic.ViewModels
                 await Shell.Current.DisplayAlert("Lỗi", "Không thể lưu. Vui lòng thử lại!", "OK");
         }
 
-        [RelayCommand] public void PlayPause() { if (_mediaElement == null) return; if (IsPlaying) { _mediaElement.Pause(); IsPlaying = false; } else { _mediaElement.Play(); IsPlaying = true; } }
+        [RelayCommand]
+        public void PlayPause()
+        {
+            if (_mediaElement == null) return;
+            if (IsPlaying) { _mediaElement.Pause(); IsPlaying = false; }
+            else { _mediaElement.Play(); IsPlaying = true; }
+
+            // 👇 THÊM DÒNG NÀY 👇
+            UpdateAndroidService();
+        }
         [RelayCommand] public void DragStarted() => _isDraggingSlider = true;
         [RelayCommand]
         public async Task DragCompleted()
@@ -410,6 +453,7 @@ namespace CosmicMusic.ViewModels
             }
             _isDraggingSlider = false;
             SyncLyricWithTime(CurrentPosition); // Bắt lại đúng câu hát đó
+            UpdateAndroidService();
         }
         [RelayCommand] public void ToggleShuffle() => IsShuffle = !IsShuffle;
         [RelayCommand] public void ToggleRepeat() => RepeatMode = (RepeatMode + 1) % 3;
@@ -482,6 +526,9 @@ namespace CosmicMusic.ViewModels
             if (_mediaElement != null) { _mediaElement.Stop(); _mediaElement.Source = null; }
             IsPlaying = false; CurrentSong = null; Playlist.Clear();
             CurrentPosition = TimeSpan.Zero; Duration = TimeSpan.Zero;
+
+            // 👇 THÊM DÒNG NÀY: Báo màn hình khóa tắt nhạc
+            UpdateAndroidService();
         }
 
         [RelayCommand] public void ToggleLyrics() => IsLyricsVisible = !IsLyricsVisible;
@@ -664,6 +711,52 @@ namespace CosmicMusic.ViewModels
             // Cập nhật lại thanh Slider cho đồng bộ ngay lập tức
             CurrentPosition = TimeSpan.FromSeconds(targetSeconds);
             OnPropertyChanged(nameof(CurrentPositionSeconds));
+        }
+
+        public async void SeekFromBackground(long ms)
+        {
+            if (_mediaElement != null)
+            {
+                var newPos = TimeSpan.FromMilliseconds(ms);
+                await _mediaElement.SeekTo(newPos);
+                CurrentPosition = newPos;
+
+                // Cập nhật lại màu của chữ Karaoke nếu đang bật lời
+                SyncLyricWithTime(newPos);
+
+                // Báo lại cho Android biết MAUI đã tua xong
+                UpdateAndroidService();
+            }
+        }
+        public void UpdateAndroidService()
+        {
+#if ANDROID
+            try
+            {
+                if (CurrentSong == null) return;
+                var context = global::Android.App.Application.Context;
+                var intent = new global::Android.Content.Intent(context, typeof(CosmicMusic.Platforms.Android.MusicService));
+
+                // Nạp đầy đủ thông tin để thanh thời gian (Seekbar) có thể chạy
+                intent.PutExtra("title", CurrentSong.Title);
+                intent.PutExtra("artist", CurrentSong.Artist);
+                intent.PutExtra("isPlaying", IsPlaying);
+
+                // Tránh lỗi khi Duration chưa kịp load
+                long durationMs = Duration.TotalMilliseconds > 0 ? (long)Duration.TotalMilliseconds : (long)(CurrentSong.Duration * 1000);
+                intent.PutExtra("duration", durationMs);
+                intent.PutExtra("position", (long)(CurrentPosition.TotalMilliseconds));
+
+                if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.O)
+                    context.StartForegroundService(intent);
+                else
+                    context.StartService(intent);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi Update Android Service: {ex.Message}");
+            }
+#endif
         }
 
     }

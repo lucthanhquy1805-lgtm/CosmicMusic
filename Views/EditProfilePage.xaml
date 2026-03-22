@@ -1,60 +1,81 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
              x:Class="CosmicMusic.Views.EditProfilePage"
              x:DataType="viewmodels:EditProfileViewModel"
-             BackgroundColor="#120520"
-             Title="Chỉnh sửa hồ sơ">
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False">
 
-    <Grid RowDefinitions="Auto, *" Padding="20">
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#2E004F" Offset="0.0" />
+            <GradientStop Color="#120520" Offset="0.4" />
+            <GradientStop Color="#050208" Offset="1.0" />
+        </LinearGradientBrush>
+    </ContentPage.Background>
 
-        <VerticalStackLayout Grid.Row="1" Spacing="25" VerticalOptions="Start" Margin="0,40,0,0">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
-            <Label Text="Chỉnh sửa tên hiển thị" 
-                   TextColor="White" 
-                   FontSize="24" 
-                   FontAttributes="Bold" 
-                   HorizontalOptions="Center"/>
+    <Grid RowDefinitions="Auto, *, Auto">
 
-            <Label Text="Tên này sẽ xuất hiện trên hồ sơ và danh sách phát công khai của bạn." 
-                   TextColor="#AAA" 
-                   FontSize="14" 
-                   HorizontalTextAlignment="Center"/>
+        <Grid Grid.Row="0" ColumnDefinitions="50, *" Padding="15,40,15,20">
+            <ImageButton Grid.Column="0" Command="{Binding CancelCommand}" BackgroundColor="Transparent" HeightRequest="40" WidthRequest="40" HorizontalOptions="Start">
+                <ImageButton.Source>
+                    <FontImageSource Glyph="❮" Color="White" Size="20"/>
+                </ImageButton.Source>
+            </ImageButton>
+            <Label Grid.Column="1" Text="Chỉnh sửa hồ sơ" TextColor="White" FontSize="20" FontFamily="MontserratBold" VerticalOptions="Center"/>
+        </Grid>
 
-            <VerticalStackLayout Spacing="8">
-                <Label Text="Tên hiển thị" TextColor="#CCC" FontAttributes="Bold"/>
-                <Border Stroke="#6C63FF" StrokeThickness="1" StrokeShape="RoundRectangle 10" BackgroundColor="#252535" HeightRequest="50" Padding="15,0">
-                    <Entry Text="{Binding NewName}" 
-                           Placeholder="Nhập tên mới" 
-                           TextColor="White" 
-                           VerticalOptions="Center"/>
-                </Border>
+        <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" Padding="20,10">
+            <VerticalStackLayout Spacing="30">
+
+                <Label Text="Tạo dấu ấn của bạn trong vũ trụ Cosmic Music. Tên hiển thị này sẽ được dùng trong các Playlist và bình luận." 
+                       TextColor="#AAA" FontSize="14" FontFamily="MontserratRegular" LineHeight="1.5" Margin="0,0,0,10"/>
+
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="TÊN HIỂN THỊ" TextColor="#E0B0FF" FontSize="13" FontFamily="MontserratBold"/>
+                    <Border StrokeShape="RoundRectangle 12" StrokeThickness="1.5" Stroke="#D946EF" BackgroundColor="#251035" Padding="15,5">
+                        <Entry Text="{Binding NewName}" 
+                               Placeholder="Nhập tên của bạn" 
+                               PlaceholderColor="#555" 
+                               TextColor="White" 
+                               BackgroundColor="Transparent" 
+                               FontFamily="MontserratBold"
+                               ClearButtonVisibility="WhileEditing"/>
+                    </Border>
+                </VerticalStackLayout>
+
             </VerticalStackLayout>
+        </ScrollView>
 
-            <Grid ColumnDefinitions="*, *" ColumnSpacing="15" Margin="0,20,0,0">
-                <Button Grid.Column="0" 
-                        Text="Hủy" 
-                        Command="{Binding CancelCommand}" 
-                        BackgroundColor="Transparent" 
-                        BorderColor="#FF4757" 
-                        BorderWidth="1" 
-                        TextColor="#FF4757"
-                        CornerRadius="25"
-                        HeightRequest="50"/>
+        <Grid Grid.Row="2" Padding="20,20,20,40">
+            <Button Text="LƯU THAY ĐỔI" 
+                    Command="{Binding SaveChangesCommand}"
+                    IsVisible="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}"
+                    BackgroundColor="#D946EF" 
+                    TextColor="White" 
+                    FontFamily="MontserratBold" 
+                    FontSize="16" 
+                    CornerRadius="25" 
+                    HeightRequest="55">
+                <Button.Shadow>
+                    <Shadow Brush="#D946EF" Offset="0,5" Radius="15" Opacity="0.5"/>
+                </Button.Shadow>
+            </Button>
 
-                <Button Grid.Column="1" 
-                        Text="Lưu tên mới" 
-                        Command="{Binding SaveChangesCommand}" 
-                        BackgroundColor="#6C63FF" 
-                        TextColor="White"
-                        CornerRadius="25"
-                        HeightRequest="50"
-                        FontAttributes="Bold"/>
-            </Grid>
+            <ActivityIndicator IsRunning="{Binding IsBusy}" 
+                               IsVisible="{Binding IsBusy}" 
+                               Color="#D946EF" 
+                               HorizontalOptions="Center" 
+                               HeightRequest="40" WidthRequest="40"/>
+        </Grid>
 
-            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#6C63FF"/>
-
-        </VerticalStackLayout>
     </Grid>
 </ContentPage>

@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Net;
+using System.Linq;
 
 namespace CosmicMusic.Services
 {
@@ -1324,6 +1325,7 @@ namespace CosmicMusic.Services
                 if (response.IsSuccessStatusCode)
                 {
                     System.Diagnostics.Debug.WriteLine($"✅ Đã lưu bài hát lên Firestore: {song.Title}");
+                    _ = Task.Run(() => CheckAndCreateAutoAlbumAsync(song.ArtistId, song.Artist, song.CoverImage));
                     return true;
                 }
                 else
@@ -1417,6 +1419,168 @@ namespace CosmicMusic.Services
 
             return finalGenreId;
         }
+       
+        // ==========================================================
+        // CỖ MÁY ĐỀ XUẤT NHẠC THÔNG MINH (Đã tối ưu cho kho nhạc nhỏ)
+        // ==========================================================
+        public async Task<(List<Song> Songs, string Title)> GetRecommendationsAsync(string userId)
+        {
+            try
+            {
+                // 1. Lấy lịch sử nghe nhạc của User
+                var history = await GetRecentlyPlayedAsync(userId);
+
+                // 👇 SỬA: Giảm xuống < 1 (Chỉ cần nghe 1 bài là bắt đầu phân tích rồi)
+                if (history == null || history.Count < 1)
+                {
+                    return (new List<Song>(), "");
+                }
+
+                // 2. Tìm Ca sĩ được nghe nhiều nhất
+                var topArtist = history.GroupBy(s => s.Artist)
+                                       .OrderByDescending(g => g.Count())
+                                       .Select(g => g.Key)
+                                       .FirstOrDefault();
+
+                // 3. Tìm Thể loại (GenreId) được nghe nhiều nhất
+                var topGenreId = history.GroupBy(s => s.GenreId)
+                                        .OrderByDescending(g => g.Count())
+                                        .Select(g => g.Key)
+                                        .FirstOrDefault();
+
+                // 4. LẤY TOÀN BỘ BÀI HÁT TỪ FIREBASE
+                List<Song> allSongs = await GetAllSongsAsync();
+
+                if (allSongs == null || allSongs.Count == 0) return (new List<Song>(), "");
+
+                List<Song> recommendedSongs = new List<Song>();
+
+                // 5. Lấy bài hát của Ca sĩ yêu thích
+                if (!string.IsNullOrEmpty(topArtist))
+                {
+                    recommendedSongs.AddRange(allSongs.Where(s => s.Artist == topArtist).Take(5));
+                }
+
+                // 6. Lấy bài hát theo Thể loại yêu thích
+                if (!string.IsNullOrEmpty(topGenreId))
+                {
+                    recommendedSongs.AddRange(allSongs.Where(s => s.GenreId == topGenreId).Take(5));
+                }
+
+                // 7. Lọc trùng lặp và loại bỏ những bài ĐÃ NGHE
+                var historyIds = history.Select(h => h.Id).ToList();
+                var finalRecommendations = recommendedSongs
+                                            .Where(s => !historyIds.Contains(s.Id)) // Lọc bài đã nghe
+                                            .GroupBy(s => s.Id).Select(g => g.First()) // Chống trùng lặp
+                                            .OrderBy(x => Guid.NewGuid()) // Xáo trộn ngẫu nhiên
+                                            .Take(10)
+                                            .ToList();
+
+                // 👇 BƯỚC CỨU CÁNH: Nếu lọc xong mà rỗng (do data ít quá, user nghe hết kho rồi)
+                // Thì bỏ qua bước lọc history, lấy luôn danh sách recommend ban đầu cho UI có cái để hiển thị
+                if (finalRecommendations.Count == 0)
+                {
+                    finalRecommendations = recommendedSongs
+                                           .GroupBy(s => s.Id).Select(g => g.First()) // Chỉ chống trùng lặp
+                                           .OrderBy(x => Guid.NewGuid())
+                                           .Take(10)
+                                           .ToList();
+                }
+
+                // 8. Tạo câu Title thật "chill" cho UI
+                string title = $"Vì bạn hay nghe {topArtist}";
+                if (string.IsNullOrEmpty(topArtist) || finalRecommendations.Count == 0)
+                {
+                    title = "Gợi ý nhạc mới hôm nay";
+                }
+
+                return (finalRecommendations, title);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi lấy đề xuất: {ex.Message}");
+                return (new List<Song>(), "");
+            }
+        }
+        // ==========================================================
+        // CỖ MÁY GIAI ĐOẠN 2: TỰ ĐỘNG GOM ALBUM (DÙNG ARTIST ID CHUẨN)
+        // ==========================================================
+        public async Task CheckAndCreateAutoAlbumAsync(string artistId, string artistName, string fallbackCover)
+        {
+            // Bỏ qua nếu không có ID (dù hệ thống của bạn rất hiếm khi để lọt ID null)
+            if (string.IsNullOrEmpty(artistId)) return;
+
+            try
+            {
+                // 1. Lấy toàn bộ bài hát của ca sĩ này (Tận dụng hàm xịn của bạn, tìm cả kiểu cũ lẫn kiểu mảng mới)
+                var allArtistSongs = await GetSongsByArtistIdAsync(artistId);
+
+                // 2. Lọc ra những bài hát đang "mồ côi" (Chưa thuộc album nào cụ thể)
+                var looseSongs = allArtistSongs.Where(s =>
+                    string.IsNullOrEmpty(s.AlbumId) ||
+                    s.Album == "Unknown" ||
+                    s.Album == "Unknown Album" ||
+                    string.IsNullOrEmpty(s.Album)).ToList();
+
+                // 3. NẾU ĐỦ 5 BÀI MỒ CÔI TRỞ LÊN -> KÍCH HOẠT GOM ALBUM!
+                if (looseSongs.Count >= 5)
+                {
+                    // Tạo một ID đặc biệt để không bị trùng lặp
+                    string albumId = $"album_auto_{artistId}";
+                    string albumTitle = $"Tuyển Tập {artistName}"; // Ví dụ: "Tuyển Tập Ricky Star"
+
+                    // 4. Kiểm tra xem Album này đã từng được tạo trên Firebase chưa
+                    string getAlbumUrl = $"{_baseUrl}/albums/{albumId}";
+                    var checkRes = await _httpClient.GetAsync(getAlbumUrl);
+
+                    if (!checkRes.IsSuccessStatusCode)
+                    {
+                        // CHƯA CÓ -> TẠO ALBUM MỚI LÊN FIREBASE
+                        var newAlbum = new
+                        {
+                            fields = new
+                            {
+                                title = new { stringValue = albumTitle },
+                                artistId = new { stringValue = artistId },
+                                artistName = new { stringValue = artistName },
+                                coverImage = new { stringValue = fallbackCover ?? "cover_chill.jpg" },
+                                releaseYear = new { integerValue = DateTime.Now.Year }
+                            }
+                        };
+
+                        var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(newAlbum), System.Text.Encoding.UTF8, "application/json");
+                        await _httpClient.PatchAsync(getAlbumUrl, content);
+                        System.Diagnostics.Debug.WriteLine($"💿 Đã tạo mới Album tự động: {albumTitle}");
+                    }
+
+                    // 5. CẬP NHẬT LẠI THÔNG TIN CHO CÁC BÀI HÁT MỒ CÔI
+                    // Gán ID Album mới tạo vào cho các bài hát
+                    foreach (var song in looseSongs)
+                    {
+                        string updateUrl = $"{_baseUrl}/songs/{song.Id}?updateMask.fieldPaths=albumId&updateMask.fieldPaths=album";
+                        var updatePayload = new
+                        {
+                            fields = new
+                            {
+                                albumId = new { stringValue = albumId },
+                                album = new { stringValue = albumTitle }
+                            }
+                        };
+                        var updateContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(updatePayload), System.Text.Encoding.UTF8, "application/json");
+
+                        // Cập nhật âm thầm không cần await để tăng tốc độ
+                        _ = _httpClient.PatchAsync(updateUrl, updateContent);
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"✅ Đã tự động gom {looseSongs.Count} bài hát mồ côi vào Album {albumTitle}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi Cỗ máy gom Album: {ex.Message}");
+            }
+        }
+
     }
 
 

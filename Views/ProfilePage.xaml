@@ -1,21 +1,37 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             xmlns:models="clr-namespace:CosmicMusic.Models"
              x:Class="CosmicMusic.Views.ProfilePage"
              x:DataType="viewmodels:ProfileViewModel"
-             BackgroundColor="#120520"
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False">
+
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#2E004F" Offset="0.0" />
+            <GradientStop Color="#120520" Offset="0.3" />
+            <GradientStop Color="#050208" Offset="1.0" />
+        </LinearGradientBrush>
+    </ContentPage.Background>
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto, *">
 
         <Grid Grid.Row="0" HeightRequest="60" Padding="15,0">
-
             <ImageButton Source="{FontImageSource Glyph='⬅', FontFamily='OpenSansRegular', Color='White', Size=24}"
                          HorizontalOptions="Start" VerticalOptions="Center"
                          Command="{Binding GoBackCommand}"
                          BackgroundColor="Transparent"/>
+
+            <Label Text="Hồ sơ cá nhân" TextColor="White" FontSize="18" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"/>
 
             <ImageButton Source="{FontImageSource Glyph='⚙', FontFamily='OpenSansRegular', Color='White', Size=24}"
                          HorizontalOptions="End" VerticalOptions="Center"
@@ -23,15 +39,19 @@
                          BackgroundColor="Transparent"/>
         </Grid>
 
-        <ScrollView Grid.Row="1">
+        <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
             <VerticalStackLayout Spacing="20" Padding="0,20">
 
                 <Border StrokeShape="RoundRectangle 60" 
-                        StrokeThickness="0"
-                        BackgroundColor="#A569F7" 
+                        StrokeThickness="3"
+                        Stroke="{Binding AvatarBorderColor}"
+                        BackgroundColor="#251035" 
                         HeightRequest="120" 
                         WidthRequest="120"
                         HorizontalOptions="Center">
+                    <Border.Shadow>
+                        <Shadow Brush="{Binding AvatarBorderColor}" Offset="0,0" Radius="20" Opacity="0.6"/>
+                    </Border.Shadow>
                     <Label Text="{Binding UserAvatarText}" 
                            TextColor="White" 
                            FontSize="48" 
@@ -49,8 +69,16 @@
                 <Label Text="{Binding UserEmail}" 
                        TextColor="#AAA" 
                        FontSize="14" 
+                       FontFamily="MontserratRegular"
                        HorizontalOptions="Center"
                        Margin="0,-10,0,0"/>
+
+                <Border IsVisible="{Binding IsPremiumUser}" BackgroundColor="#FFD700" StrokeThickness="0" Padding="15,5" StrokeShape="RoundRectangle 15" HorizontalOptions="Center">
+                    <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
+                        <Label Text="👑" TextColor="Black" FontSize="14" VerticalOptions="Center"/>
+                        <Label Text="Thành viên VIP" TextColor="Black" FontSize="12" FontFamily="MontserratBold" VerticalOptions="Center"/>
+                    </HorizontalStackLayout>
+                </Border>
 
                 <Button Text="Chỉnh sửa hồ sơ"
                         Command="{Binding OpenEditPageCommand}"
@@ -62,25 +90,80 @@
                         HeightRequest="40"
                         WidthRequest="150"
                         FontSize="12"
-                        FontAttributes="Bold"
+                        FontFamily="MontserratBold"
                         Margin="0,10,0,0"/>
 
-                <Grid ColumnDefinitions="*, *" Padding="40,20">
-                    <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center">
-                        <Label Text="23" TextColor="White" FontSize="20" FontAttributes="Bold" HorizontalOptions="Center"/>
-                        <Label Text="PLAYLISTS" TextColor="#AAA" FontSize="10" HorizontalOptions="Center"/>
+                <Grid ColumnDefinitions="*, *" Padding="40,10">
+                    <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center" Spacing="5">
+                        <Label Text="{Binding TotalPlaylists}" TextColor="White" FontSize="22" FontFamily="MontserratBold" HorizontalOptions="Center"/>
+                        <Label Text="PLAYLISTS" TextColor="#AAA" FontSize="11" FontFamily="MontserratBold" HorizontalOptions="Center"/>
                     </VerticalStackLayout>
-                    <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center">
-                        <Label Text="120" TextColor="White" FontSize="20" FontAttributes="Bold" HorizontalOptions="Center"/>
-                        <Label Text="FOLLOWING" TextColor="#AAA" FontSize="10" HorizontalOptions="Center"/>
+                    <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="5">
+                        <Label Text="{Binding TotalFavorites}" TextColor="White" FontSize="22" FontFamily="MontserratBold" HorizontalOptions="Center"/>
+                        <Label Text="YÊU THÍCH" TextColor="#AAA" FontSize="11" FontFamily="MontserratBold" HorizontalOptions="Center"/>
                     </VerticalStackLayout>
                 </Grid>
 
                 <BoxView HeightRequest="1" Color="#33FFFFFF" Margin="20,0"/>
 
-                <Label Text="Danh sách phát công khai" TextColor="White" FontSize="16" FontAttributes="Bold" Margin="20,10"/>
+                <VerticalStackLayout Padding="20,10" Spacing="15">
 
-                <Label Text="Bạn chưa có danh sách phát nào." TextColor="#888" HorizontalOptions="Center" Margin="0,30"/>
+                    <Border StrokeShape="RoundRectangle 15" StrokeThickness="0" BackgroundColor="#251035" Padding="15" IsVisible="{Binding IsPremiumUser, Converter={StaticResource InvertedBoolConverter}}">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenPremiumCommand}"/>
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="40, *, 30">
+                            <Label Grid.Column="0" Text="💎" TextColor="#FFD700" FontSize="20" VerticalOptions="Center"/>
+                            <Label Grid.Column="1" Text="Nâng cấp Premium" TextColor="White" FontSize="15" FontFamily="MontserratBold" VerticalOptions="Center"/>
+                            <Label Grid.Column="2" Text="❯" TextColor="#555" FontSize="16" VerticalOptions="Center" HorizontalOptions="End"/>
+                        </Grid>
+                    </Border>
+
+                    <Border StrokeShape="RoundRectangle 15" StrokeThickness="0" BackgroundColor="#4A0E2E" Padding="15">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding LogoutCommand}"/>
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="40, *, 30">
+                            <Label Grid.Column="0" Text="⏏" TextColor="#FF4A4A" FontSize="20" VerticalOptions="Center"/>
+                            <Label Grid.Column="1" Text="Đăng xuất" TextColor="#FF4A4A" FontSize="15" FontFamily="MontserratBold" VerticalOptions="Center"/>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <Label Text="Danh sách phát của tôi" TextColor="White" FontSize="16" FontFamily="MontserratBold" Margin="20,10,20,0"/>
+
+                <Label Text="Bạn chưa có danh sách phát nào." 
+                       TextColor="#888" 
+                       FontFamily="MontserratRegular" 
+                       HorizontalOptions="Center" 
+                       Margin="0,15,0,40"
+                       IsVisible="{Binding HasPlaylists, Converter={StaticResource InvertedBoolConverter}}"/>
+
+                <CollectionView ItemsSource="{Binding UserPlaylists}" 
+                                IsVisible="{Binding HasPlaylists}"
+                                Margin="20,15,20,40">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="15"/>
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Playlist">
+                            <Grid ColumnDefinitions="70, *" ColumnSpacing="15" BackgroundColor="Transparent">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ProfileViewModel}}, Path=OpenPlaylistCommand}" CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+
+                                <Frame Grid.Column="0" Padding="0" CornerRadius="10" IsClippedToBounds="True" HeightRequest="70" WidthRequest="70" BackgroundColor="#251035" BorderColor="Transparent">
+                                    <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                </Frame>
+
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4">
+                                    <Label Text="{Binding Name}" TextColor="White" FontSize="16" FontFamily="MontserratBold" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding SongCount, StringFormat='{0} bài hát'}" TextColor="#AAA" FontSize="13" FontFamily="MontserratRegular"/>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
 
             </VerticalStackLayout>
         </ScrollView>

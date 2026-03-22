@@ -1,18 +1,24 @@
 using CosmicMusic.ViewModels;
-namespace CosmicMusic.Views;
 
-public partial class ProfilePage : ContentPage
+// 👇 DÒNG QUAN TRỌNG BỊ THIẾU ĐÂY RỒI 👇
+namespace CosmicMusic.Views
 {
-    public ProfilePage()
+    public partial class ProfilePage : ContentPage
     {
-        InitializeComponent();
-        BindingContext = new ProfileViewModel();
-    }
+        public ProfilePage(ProfileViewModel viewModel)
+        {
+            InitializeComponent();
+            BindingContext = viewModel;
+        }
 
-    // Refresh dữ liệu mỗi khi quay lại trang này (để cập nhật tên mới nếu vừa đổi)
-    protected override void OnAppearing()
-    {
-        base.OnAppearing();
-        (BindingContext as ProfileViewModel)?.LoadUserData();
+        // Mỗi khi vào lại trang này, nó sẽ nạp lại thông tin mới nhất
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            if (BindingContext is ProfileViewModel vm)
+            {
+                vm.LoadUserData();
+            }
+        }
     }
 }

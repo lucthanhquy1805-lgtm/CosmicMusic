@@ -101,7 +101,44 @@
                         </CollectionView>
                     </VerticalStackLayout>
 
+                    <VerticalStackLayout Spacing="15" Margin="0,0,0,10" IsVisible="{Binding HasRecommendations}">
+                        <Label Text="{Binding RecommendationTitle}" FontFamily="MontserratBold" FontSize="20" TextColor="{StaticResource CosmicPink}" Margin="20,0"/>
 
+                        <CollectionView ItemsSource="{Binding RecommendedSongs}" HeightRequest="180">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
+                            </CollectionView.ItemsLayout>
+
+                            <CollectionView.Header>
+                                <BoxView WidthRequest="5" BackgroundColor="Transparent"/>
+                            </CollectionView.Header>
+                            <CollectionView.Footer>
+                                <BoxView WidthRequest="20" BackgroundColor="Transparent"/>
+                            </CollectionView.Footer>
+
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:Song">
+                                    <Grid WidthRequest="130" RowDefinitions="130, Auto, Auto">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=SelectSongCommand}" CommandParameter="{Binding .}"/>
+                                        </Grid.GestureRecognizers>
+
+                                        <Border Grid.Row="0" StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="0" BackgroundColor="#332A38">
+                                            <Grid>
+                                                <Image Source="{Binding CoverImage}" Aspect="AspectFill" />
+                                                <Border IsVisible="{Binding IsPremium}" BackgroundColor="#FFD700" StrokeThickness="0" Padding="5,2" Margin="5" HorizontalOptions="End" VerticalOptions="Start" StrokeShape="RoundRectangle 4">
+                                                    <Label Text="VIP" TextColor="Black" FontSize="9" FontFamily="MontserratBold"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <Label Grid.Row="1" Text="{Binding Title}" FontFamily="MontserratBold" FontSize="13" TextColor="White" Margin="0,8,0,2" LineBreakMode="TailTruncation" HorizontalOptions="Start"/>
+                                        <Label Grid.Row="2" Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="11" TextColor="#AAA" LineBreakMode="TailTruncation" HorizontalOptions="Start"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
                     <VerticalStackLayout Spacing="15">
                         <Label Text="Featured Albums" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF" Margin="20,0"/>
                         <CollectionView x:Name="AlbumList" ItemsSource="{Binding FeaturedAlbums}" HeightRequest="240">

@@ -40,6 +40,9 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private string _userName;
         [ObservableProperty] private bool _isPremiumUser;
         [ObservableProperty] private string _avatarBorderColor = "#6C63FF";
+        [ObservableProperty] private ObservableCollection<Song> _recommendedSongs = new();
+        [ObservableProperty] private string _recommendationTitle;
+        [ObservableProperty] private bool _hasRecommendations = false;
 
         [ObservableProperty] private bool _hasRecentlyPlayed;
 
@@ -102,6 +105,9 @@ namespace CosmicMusic.ViewModels
         // ==========================================================
         // 4. HÀM TẢI DỮ LIỆU TỪ FIREBASE
         // ==========================================================
+        // ==========================================================
+        // 4. HÀM TẢI DỮ LIỆU TỪ FIREBASE (ĐÃ TÍCH HỢP ĐỀ XUẤT NHẠC)
+        // ==========================================================
         private async void LoadDataFromFirebase()
         {
             try
@@ -114,7 +120,20 @@ namespace CosmicMusic.ViewModels
                 // Đồng thời tải luôn lịch sử nghe nhạc của User này
                 await LoadRecentlyPlayedAsync();
 
+                // Đợi tất cả các truy vấn cơ bản hoàn tất
                 await Task.WhenAll(taskSongs, taskAlbums, taskArtists, taskGenres);
+
+                // 👇 ĐÃ SỬA: Khai báo rõ ràng kiểu Tuple có tên (Songs, Title)
+                string uid = Preferences.Get("UserId", "");
+
+                // Tạo sẵn biến kết quả với giá trị rỗng mặc định
+                (List<Song> Songs, string Title) suggestionResult = (new List<Song>(), "");
+
+                if (!string.IsNullOrEmpty(uid))
+                {
+                    // Lấy đề xuất dựa trên ID của user và await trực tiếp luôn
+                    suggestionResult = await _firestoreService.GetRecommendationsAsync(uid);
+                }
 
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
@@ -129,6 +148,24 @@ namespace CosmicMusic.ViewModels
 
                     Genres.Clear();
                     foreach (var genre in taskGenres.Result) Genres.Add(genre);
+
+                    // 👇 CẬP NHẬT GIAO DIỆN ĐỀ XUẤT 👇
+                    RecommendedSongs.Clear();
+
+                    // Đã kiểm tra null cẩn thận để tránh lỗi Crash App
+                    if (suggestionResult.Songs != null && suggestionResult.Songs.Count > 0)
+                    {
+                        RecommendationTitle = suggestionResult.Title;
+                        foreach (var song in suggestionResult.Songs)
+                        {
+                            RecommendedSongs.Add(song);
+                        }
+                        HasRecommendations = true;
+                    }
+                    else
+                    {
+                        HasRecommendations = false; // Tự động ẩn UI nếu không có bài nào
+                    }
 
                     // Tương thích cho list XAML cũ
                     TopArtists.Clear();
