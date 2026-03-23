@@ -1,9 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CosmicMusic.Services; // 👇 Nhớ namespace này
+using CosmicMusic.Services;
 using CosmicMusic.Views;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
+using System;
+using Microsoft.Maui.Controls;
 
 namespace CosmicMusic.ViewModels
 {
@@ -15,14 +18,31 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private string _confirmPassword;
         [ObservableProperty] private bool _isBusy;
 
-        private readonly HttpClient _httpClient;
-        private readonly FirestoreService _firestoreService; // 👇 1. Khai báo Service
+        // 👇 BỔ SUNG: Biến quản lý trạng thái ẩn/hiện mật khẩu (Mặc định là True = Ẩn)
+        [ObservableProperty] private bool _isPasswordHidden = true;
 
-        // 👇 2. Tiêm FirestoreService
+        private readonly HttpClient _httpClient;
+        private readonly FirestoreService _firestoreService;
+
         public RegisterViewModel(FirestoreService firestoreService)
         {
             _httpClient = new HttpClient();
             _firestoreService = firestoreService;
+        }
+
+        // 👇 BỔ SUNG: Lệnh bật/tắt con mắt hiển thị mật khẩu
+        [RelayCommand]
+        public void TogglePasswordVisibility()
+        {
+            IsPasswordHidden = !IsPasswordHidden;
+        }
+
+        // 👇 ĐÃ SỬA: Đổi tên thành NavigateBackToLogin để khớp với file XAML
+        [RelayCommand]
+        public async Task NavigateBackToLogin()
+        {
+            // Dùng ".." để ra lệnh cho App lùi lại 1 bước (trở về trang Login mượt mà nhất)
+            await Shell.Current.GoToAsync("..");
         }
 
         [RelayCommand]
@@ -73,13 +93,13 @@ namespace CosmicMusic.ViewModels
 
                     await Shell.Current.DisplayAlert("Thành công", "Tài khoản đã được khởi tạo trên hệ thống đám mây!", "Đăng nhập ngay");
 
-                    // Quay về trang đăng nhập
-                    await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
+                    // Sau khi đăng ký xong, lùi về trang đăng nhập
+                    await Shell.Current.GoToAsync("..");
                 }
                 else
                 {
-                    // Parse lỗi từ Firebase để báo chi tiết hơn (ví dụ: Email tồn tại)
-                    await Shell.Current.DisplayAlert("Lỗi", "Đăng ký thất bại. Email có thể đã được sử dụng.", "OK");
+                    // Parse lỗi từ Firebase để báo chi tiết hơn
+                    await Shell.Current.DisplayAlert("Lỗi", "Đăng ký thất bại. Email có thể đã được sử dụng hoặc mật khẩu quá ngắn.", "OK");
                 }
             }
             catch (Exception ex)
@@ -103,11 +123,7 @@ namespace CosmicMusic.ViewModels
             }
             catch { /* Lỗi cập nhật tên phụ không quan trọng lắm, bỏ qua */ }
         }
-
-        [RelayCommand]
-        public async Task NavigateToLogin()
-        {
-            await Shell.Current.GoToAsync($"//{nameof(LoginPage)}");
-        }
     }
+
+    
 }

@@ -315,11 +315,12 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        // 👇 ĐÃ THÊM LẠI HÀM LOGOUT Ở ĐÂY 👇
+      
+        //  HÀM LOGOUT 
         [RelayCommand]
         public async Task PerformLogout()
         {
-            IsUserMenuVisible = false; // Đóng cái menu đen lại
+            IsUserMenuVisible = false; 
 
             bool answer = await Shell.Current.DisplayAlert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất khỏi Cosmic Music?", "Có", "Không");
 
@@ -334,16 +335,24 @@ namespace CosmicMusic.ViewModels
                         _audioViewModel.Cleanup();
                     }
 
+                    
                     Preferences.Remove("AuthToken");
                     Preferences.Remove("UserEmail");
                     Preferences.Remove("UserName");
                     Preferences.Remove("UserId");
                     Preferences.Remove("IsPremium");
 
+                    // 👇 BỔ SUNG: CỰC KỲ QUAN TRỌNG: Xóa link ảnh của người cũ khỏi bộ nhớ máy 👇
+                    Preferences.Remove("UserPhotoUrl");
+
+                    // Giữ nguyên các dòng gán lại của bạn
                     IsPremiumUser = false;
                     AvatarBorderColor = "#6C63FF";
                     UserAvatarText = "?";
                     UserName = "Khách";
+
+                    // 👇 BỔ SUNG: Xóa luôn link ảnh hiển thị trên giao diện của người vừa đăng xuất 👇
+                    HeaderPhotoUrl = "";
 
                     RecentlyPlayed?.Clear();
                     HasRecentlyPlayed = false;
@@ -357,6 +366,7 @@ namespace CosmicMusic.ViewModels
                 }
                 finally
                 {
+                    // Chỗ này cũng giữ nguyên không xóa của bạn
                     await Task.Delay(500);
                     _isNavigating = false;
                 }

@@ -56,6 +56,8 @@ namespace CosmicMusic.Services
                             info.IsPremium = boolVal.GetBoolean();
                         if (fields.TryGetProperty("displayName", out var nameProp) && nameProp.TryGetProperty("stringValue", out var nameVal))
                             info.DisplayName = nameVal.GetString();
+                        if (fields.TryGetProperty("photoUrl", out var photoProp) && photoProp.TryGetProperty("stringValue", out var photoVal))
+                            info.PhotoUrl = photoVal.GetString();
                         return info;
                     }
                 }
@@ -1616,5 +1618,7 @@ namespace CosmicMusic.Services
     {
         public string DisplayName { get; set; }
         public bool IsPremium { get; set; }
+        public string Email { get; set; }
+        public string PhotoUrl { get; set; }
     }
 }

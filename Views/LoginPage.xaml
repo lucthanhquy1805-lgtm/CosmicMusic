@@ -7,68 +7,143 @@
              Title="Login"
              Shell.NavBarIsVisible="False">
 
-    <ContentPage.Background>
-        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#8E2DE2" Offset="0.0" />
-            <GradientStop Color="#4A00E0" Offset="1.0" />
-        </LinearGradientBrush>
-    </ContentPage.Background>
-
     <ContentPage.Resources>
-        <x:String x:Key="IconEmail">M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z</x:String>
-        <x:String x:Key="IconLock">M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z</x:String>
+        <x:String x:Key="IconUser">M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z</x:String>
+        <x:String x:Key="IconKey">M7,14A2,2 0 0,1 5,12A2,2 0 0,1 7,10A2,2 0 0,1 9,12A2,2 0 0,1 7,14M12.65,10C11.83,7.67 9.61,6 7,6A6,6 0 0,0 1,12A6,6 0 0,0 7,18C9.61,18 11.83,16.33 12.65,14H17V18H21V14H23V10H12.65Z</x:String>
+        <x:String x:Key="IconGoogle">M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.2,4.73C15.29,4.73 17.1,6.7 17.1,6.7L19,4.72C19,4.72 16.56,2 12.1,2C6.42,2 2.03,6.8 2.03,12C2.03,17.05 6.16,22 12.25,22C17.6,22 21.5,18.33 21.5,12.91C21.5,11.76 21.35,11.1 21.35,11.1Z</x:String>
+        <x:String x:Key="IconApple">M12.152 11.856c-.053-2.553 2.122-3.81 2.218-3.872-1.196-1.748-3.048-1.983-3.71-2.016-1.58-.158-3.085.932-3.888.932-.803 0-2.043-.91-3.35-.884-1.7.025-3.268.99-4.148 2.515-1.788 3.097-.456 7.683 1.285 10.198.85 1.229 1.855 2.6 3.166 2.548 1.26-.052 1.744-.817 3.268-.817 1.503 0 1.947.817 3.268.79 1.36-.026 2.222-1.253 3.05-2.479 1.002-1.465 1.417-2.887 1.442-2.962-.03-.014-2.768-1.061-2.602-4.008V11.856zM10.875 3.96c.69-.838 1.156-2.007 1.03-3.176-1.008.04-2.225.67-2.936 1.508-.636.744-1.192 1.933-1.042 3.084 1.127.087 2.256-.576 2.948-1.416z</x:String>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="*, Auto, Auto, *">
+    <Grid BackgroundColor="#120812">
+        <Ellipse Fill="#851655" WidthRequest="400" HeightRequest="400" HorizontalOptions="Start" VerticalOptions="Start" Margin="-150,-150,0,0" Opacity="0.4">
+            <Ellipse.Shadow>
+                <Shadow Brush="#851655" Radius="150"/>
+            </Ellipse.Shadow>
+        </Ellipse>
+        <Ellipse Fill="#f4259d" WidthRequest="300" HeightRequest="300" HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-100,-100" Opacity="0.2">
+            <Ellipse.Shadow>
+                <Shadow Brush="#f4259d" Radius="100"/>
+            </Ellipse.Shadow>
+        </Ellipse>
 
-        <VerticalStackLayout Grid.Row="1" Spacing="10" HorizontalOptions="Center" Margin="0,0,0,50">
-            <Label Text="🎵" FontSize="80" HorizontalOptions="Center"/>
-            <Label Text="Cosmic Music" FontFamily="MontserratBold" FontSize="32" TextColor="White" HorizontalOptions="Center"/>
-            <Label Text="Unlock the Universe of Sound" FontFamily="MontserratRegular" FontSize="16" TextColor="#DDD" HorizontalOptions="Center"/>
-        </VerticalStackLayout>
-
-        <VerticalStackLayout Grid.Row="2" Spacing="20" Padding="30">
-
-            <Border StrokeShape="RoundRectangle 10" StrokeThickness="0" BackgroundColor="#33000000" HeightRequest="50">
-                <Grid ColumnDefinitions="50, *">
-                    <Path Grid.Column="0" Data="{StaticResource IconEmail}" Fill="#AAA" Aspect="Uniform" HeightRequest="20" HorizontalOptions="Center" VerticalOptions="Center"/>
-                    <Entry Grid.Column="1" Text="{Binding Email}" Placeholder="Email Address" PlaceholderColor="#AAA" TextColor="White" VerticalOptions="Center" FontFamily="MontserratRegular"/>
-                </Grid>
-            </Border>
-
-            <Border StrokeShape="RoundRectangle 10" StrokeThickness="0" BackgroundColor="#33000000" HeightRequest="50">
-                <Grid ColumnDefinitions="50, *">
-                    <Path Grid.Column="0" Data="{StaticResource IconLock}" Fill="#AAA" Aspect="Uniform" HeightRequest="20" HorizontalOptions="Center" VerticalOptions="Center"/>
-                    <Entry Grid.Column="1" Text="{Binding Password}" IsPassword="True" Placeholder="Password" PlaceholderColor="#AAA" TextColor="White" VerticalOptions="Center" FontFamily="MontserratRegular"/>
-                </Grid>
-            </Border>
-
-            <Button Text="LOGIN" 
-                    Command="{Binding LoginCommand}"
-                    FontFamily="MontserratBold"
-                    BackgroundColor="#FF0055" 
-                    TextColor="White"
-                    CornerRadius="25"
-                    HeightRequest="50"
-                    Margin="0,20,0,0">
-                <Button.Shadow>
-                    <Shadow Brush="#FF0055" Offset="0,4" Radius="10" Opacity="0.5"/>
-                </Button.Shadow>
-            </Button>
-
-            <Label Text="Don't have an account? Sign up" 
-                   TextColor="White" 
-                   FontFamily="MontserratRegular" 
-                   HorizontalOptions="Center"
-                   TextDecorations="Underline">
-                <Label.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding NavigateToRegisterCommand}"/>
-                </Label.GestureRecognizers>
+        <HorizontalStackLayout HorizontalOptions="Start" VerticalOptions="Start" Margin="25,20" Spacing="8">
+            <Label Text="🚀" FontSize="18"/>
+            <Label Text="CosmicMusic" FontFamily="MontserratBold" FontSize="14" TextColor="#f4259d" CharacterSpacing="3" VerticalOptions="Center">
+                <Label.Shadow>
+                    <Shadow Brush="#f4259d" Opacity="0.8" Radius="8"/>
+                </Label.Shadow>
             </Label>
+        </HorizontalStackLayout>
 
-        </VerticalStackLayout>
+        <ScrollView VerticalScrollBarVisibility="Never">
+            <VerticalStackLayout Spacing="0" Padding="30,80,30,80" VerticalOptions="Center" MinimumHeightRequest="700">
 
-        <ActivityIndicator Grid.RowSpan="4" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#FF0055" VerticalOptions="Center" HorizontalOptions="Center"/>
+                <Label Text="Login to Station" FontFamily="MontserratBold" FontSize="32" TextColor="White" HorizontalOptions="Center" Margin="0,0,0,5">
+                    <Label.Shadow>
+                        <Shadow Brush="#f4259d" Opacity="0.4" Radius="15"/>
+                    </Label.Shadow>
+                </Label>
+                <Label Text="AUTHORIZED PERSONNEL ONLY" FontFamily="MontserratBold" FontSize="11" TextColor="#A09BBA" CharacterSpacing="2" HorizontalOptions="Center" Margin="0,0,0,30"/>
+
+                <Border StrokeShape="RoundRectangle 16" StrokeThickness="1" Stroke="#1AFFFFFF" BackgroundColor="#08FFFFFF" Padding="25,35">
+                    <VerticalStackLayout Spacing="25">
+
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="PILOT ID" FontFamily="MontserratBold" FontSize="10" TextColor="#A09BBA" CharacterSpacing="2" Margin="5,0,0,0"/>
+                            <Border StrokeShape="RoundRectangle 8" StrokeThickness="1" Stroke="#1AFFFFFF" BackgroundColor="#0A040A" HeightRequest="52">
+                                <Grid ColumnDefinitions="45, *">
+                                    <Path Grid.Column="0" Data="{StaticResource IconUser}" Fill="#A09BBA" Aspect="Uniform" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    <Entry Grid.Column="1" Text="{Binding Email}" Placeholder="Enter ID..." PlaceholderColor="#555555" TextColor="White" FontFamily="MontserratRegular" BackgroundColor="Transparent" Keyboard="Email"/>
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="ACCESS CODE" FontFamily="MontserratBold" FontSize="10" TextColor="#A09BBA" CharacterSpacing="2" Margin="5,0,0,0"/>
+                            <Border StrokeShape="RoundRectangle 8" StrokeThickness="1" Stroke="#1AFFFFFF" BackgroundColor="#0A040A" HeightRequest="52">
+                                <Grid ColumnDefinitions="45, *">
+                                    <Path Grid.Column="0" Data="{StaticResource IconKey}" Fill="#A09BBA" Aspect="Uniform" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    <Entry Grid.Column="1" Text="{Binding Password}" IsPassword="True" Placeholder="••••••••" PlaceholderColor="#555555" TextColor="White" FontFamily="MontserratRegular" BackgroundColor="Transparent"/>
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Border StrokeShape="RoundRectangle 26" StrokeThickness="0" HeightRequest="52" Margin="0,10,0,0">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#f4259d" Offset="0.0"/>
+                                    <GradientStop Color="#851655" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.Shadow>
+                                <Shadow Brush="#f4259d" Offset="0,0" Radius="20" Opacity="0.4"/>
+                            </Border.Shadow>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding LoginCommand}"/>
+                            </Border.GestureRecognizers>
+                            <HorizontalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                                <Label Text="LAUNCH" FontFamily="MontserratBold" FontSize="13" TextColor="White" CharacterSpacing="3" VerticalOptions="Center"/>
+                                <Label Text="🚀" FontSize="14" VerticalOptions="Center" Margin="0,-2,0,0"/>
+                            </HorizontalStackLayout>
+                        </Border>
+                        <Label Text="FORGOT ACCESS CODE" FontFamily="MontserratBold" FontSize="10" TextColor="#A09BBA" CharacterSpacing="1" HorizontalOptions="Center" Margin="0,5,0,5" TextDecorations="Underline">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ForgotPasswordCommand}"/>
+                            </Label.GestureRecognizers>
+                        </Label>
+
+                        <Grid ColumnDefinitions="*, Auto, *" Margin="0,5">
+                            <BoxView Grid.Column="0" HeightRequest="1" Color="#1AFFFFFF" VerticalOptions="Center"/>
+                            <Label Grid.Column="1" Text="TRANSMISSION CHANNELS" FontFamily="MontserratBold" FontSize="9" TextColor="#666666" CharacterSpacing="2" Margin="15,0"/>
+                            <BoxView Grid.Column="2" HeightRequest="1" Color="#1AFFFFFF" VerticalOptions="Center"/>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*, *" ColumnSpacing="15">
+                            <Border Grid.Column="0" StrokeShape="RoundRectangle 8" StrokeThickness="1" Stroke="#1AFFFFFF" BackgroundColor="Transparent" HeightRequest="45">
+                                <HorizontalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                                    <Path Data="{StaticResource IconGoogle}" Fill="#A09BBA" Aspect="Uniform" HeightRequest="14"/>
+                                    <Label Text="GOOGLE" FontFamily="MontserratBold" FontSize="9" TextColor="#A09BBA" CharacterSpacing="1" VerticalOptions="Center"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border Grid.Column="1" StrokeShape="RoundRectangle 8" StrokeThickness="1" Stroke="#1AFFFFFF" BackgroundColor="Transparent" HeightRequest="45">
+                                <HorizontalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                                    <Path Data="{StaticResource IconApple}" Fill="#A09BBA" Aspect="Uniform" HeightRequest="16" Margin="0,0,0,2"/>
+                                    <Label Text="APPLE" FontFamily="MontserratBold" FontSize="9" TextColor="#A09BBA" CharacterSpacing="1" VerticalOptions="Center"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                        </Grid>
+
+                    </VerticalStackLayout>
+                </Border>
+
+                <HorizontalStackLayout HorizontalOptions="Center" Margin="0,35,0,0" Spacing="6">
+                    <Label Text="NEW PILOT?" FontFamily="MontserratBold" FontSize="10" TextColor="#A09BBA" CharacterSpacing="1" VerticalOptions="Center"/>
+                    <Label Text="REGISTER FOR A NEW STATION" FontFamily="MontserratBold" FontSize="10" TextColor="#f4259d" CharacterSpacing="1" VerticalOptions="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NavigateToRegisterCommand}"/>
+                        </Label.GestureRecognizers>
+                    </Label>
+                </HorizontalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <HorizontalStackLayout HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,25" Spacing="15" Opacity="0.2">
+            <Label Text="GALACTIC FED. ID: 8821-X" FontFamily="MontserratBold" FontSize="8" TextColor="White" CharacterSpacing="3"/>
+            <BoxView HeightRequest="1" WidthRequest="30" Color="White" VerticalOptions="Center"/>
+            <Label Text="STATION: SIGMA-9" FontFamily="MontserratBold" FontSize="8" TextColor="White" CharacterSpacing="3"/>
+        </HorizontalStackLayout>
+
+        <Grid BackgroundColor="#EE120812" IsVisible="{Binding IsBusy}">
+            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="25">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" Color="#f4259d" WidthRequest="60" HeightRequest="60"/>
+                <Label Text="INITIATING LAUNCH SEQUENCE..." TextColor="#f4259d" FontFamily="MontserratBold" FontSize="12" CharacterSpacing="3">
+                    <Label.Shadow>
+                        <Shadow Brush="#f4259d" Opacity="0.5" Radius="10"/>
+                    </Label.Shadow>
+                </Label>
+            </VerticalStackLayout>
+        </Grid>
 
     </Grid>
 </ContentPage>
