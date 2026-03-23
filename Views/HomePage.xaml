@@ -4,9 +4,9 @@
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
              xmlns:models="clr-namespace:CosmicMusic.Models"
+             xmlns:converters="clr-namespace:CosmicMusic.Converters" 
              x:Class="CosmicMusic.Views.HomePage"
              x:DataType="viewmodels:HomeViewModel">
-
     <ContentPage.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#2E004F" Offset="0.0" />
@@ -21,6 +21,8 @@
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
             <toolkit:BoolToObjectConverter x:Key="BoolToIconConverter" TrueObject="⏸" FalseObject="▶"/>
             <Color x:Key="CosmicPink">#D946EF</Color>
+
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter"/>
 
             <x:String x:Key="IconUserOutline">M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z</x:String>
             <x:String x:Key="IconSettings">M19.14,12.94C19.17,12.64 19.2,12.32 19.2,12C19.2,11.68 19.17,11.36 19.14,11.06L21.16,9.38C21.34,9.23 21.4,8.97 21.28,8.77L19.37,5.46C19.25,5.25 19,5.17 18.77,5.25L16.39,6.25C15.89,5.85 15.35,5.5 14.77,5.24L14.41,2.6C14.38,2.37 14.18,2.2 13.95,2.2H10.05C9.82,2.2 9.62,2.37 9.59,2.6L9.23,5.24C8.65,5.5 8.11,5.85 7.61,6.25L5.23,5.25C5,5.17 4.75,5.25 4.63,5.46L2.72,8.77C2.6,8.97 2.66,9.23 2.84,9.38L4.86,11.06C4.83,11.36 4.8,11.68 4.8,12C4.8,12.32 4.83,12.64 4.86,12.94L2.84,14.62C2.66,14.77 2.6,15.03 2.72,15.23L4.63,18.54C4.75,18.75 5,18.83 5.23,18.75L7.61,17.75C8.11,18.15 8.65,18.5 9.23,18.76L9.59,21.4C9.62,21.63 9.82,21.8 10.05,21.8H13.95C14.18,21.8 14.38,21.63 14.41,21.4L14.77,18.76C15.35,18.5 15.89,18.15 16.39,17.75L18.77,18.75C19,18.83 19.25,18.75 19.37,18.54L21.28,15.23C21.4,15.03 21.34,14.77 21.16,14.62L19.14,12.94M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5Z</x:String>
@@ -46,12 +48,19 @@
                 <VerticalStackLayout Spacing="25" Padding="0,10,0,30">
 
                     <Grid ColumnDefinitions="Auto, *, Auto" Margin="20,0,20,20">
+
                         <Border Grid.Column="0" StrokeShape="RoundRectangle 25" StrokeThickness="2" Stroke="#33FFFFFF" BackgroundColor="{Binding AvatarBorderColor}" HeightRequest="50" WidthRequest="50" HorizontalOptions="Start">
-                            <Label Text="{Binding UserAvatarText}" TextColor="White" FontSize="24" FontAttributes="Bold" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            <Grid>
+                                <Label Text="{Binding UserAvatarText}" TextColor="White" FontSize="24" FontAttributes="Bold" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"
+                                       IsVisible="{Binding HeaderPhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=False}"/>
+                                <Image Source="{Binding HeaderPhotoUrl}" Aspect="AspectFill"
+                                       IsVisible="{Binding HeaderPhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=True}"/>
+                            </Grid>
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding TapUserAvatarCommand}"/>
                             </Border.GestureRecognizers>
                         </Border>
+
                         <Label Grid.Column="1" Text="Home" TextColor="White" FontSize="20" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"/>
                         <ImageButton Grid.Column="2" Source="{FontImageSource Glyph='🔍', FontFamily='OpenSansRegular', Color='#E0B0FF'}" HeightRequest="30" Command="{Binding NavigateToSearchCommand}" BackgroundColor="Transparent"/>
                     </Grid>
@@ -278,9 +287,16 @@
             </Border.Shadow>
             <Grid RowDefinitions="Auto, *, Auto" Padding="25,40,20,30">
                 <Grid Grid.Row="0" ColumnDefinitions="60, *" ColumnSpacing="15" Margin="0,0,0,30">
+
                     <Border Grid.Column="0" StrokeShape="RoundRectangle 30" StrokeThickness="2" Stroke="#FFD700" BackgroundColor="{Binding AvatarBorderColor}" HeightRequest="60" WidthRequest="60">
-                        <Label Text="{Binding UserAvatarText}" TextColor="White" FontSize="26" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"/>
+                        <Grid>
+                            <Label Text="{Binding UserAvatarText}" TextColor="White" FontSize="26" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"
+                                   IsVisible="{Binding HeaderPhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=False}"/>
+                            <Image Source="{Binding HeaderPhotoUrl}" Aspect="AspectFill"
+                                   IsVisible="{Binding HeaderPhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=True}"/>
+                        </Grid>
                     </Border>
+
                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
                         <Label Text="{Binding UserName}" TextColor="White" FontSize="20" FontFamily="MontserratBold"/>
                         <Label Text="Xem hồ sơ" TextColor="#E0B0FF" FontSize="13">

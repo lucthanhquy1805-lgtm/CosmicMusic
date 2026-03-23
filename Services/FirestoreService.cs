@@ -1580,7 +1580,35 @@ namespace CosmicMusic.Services
                 System.Diagnostics.Debug.WriteLine($"❌ Lỗi Cỗ máy gom Album: {ex.Message}");
             }
         }
+        // Bổ sung hàm cập nhật Avatar vào Firestore bằng REST API
+        public async Task<bool> UpdateUserAvatarAsync(string uid, string avatarUrl)
+        {
+            try
+            {
+                // Gọi API PATCH để cập nhật đúng 1 trường 'photoUrl' trong bảng 'users'
+                string url = $"{_baseUrl}/users/{uid}?updateMask.fieldPaths=photoUrl";
 
+                var payload = new
+                {
+                    fields = new
+                    {
+                        photoUrl = new { stringValue = avatarUrl }
+                    }
+                };
+
+                string json = System.Text.Json.JsonSerializer.Serialize(payload);
+                var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+                // Gửi request cập nhật
+                var response = await _httpClient.PatchAsync(url, content);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi update Avatar: {ex.Message}");
+                return false;
+            }
+        }
     }
 
 

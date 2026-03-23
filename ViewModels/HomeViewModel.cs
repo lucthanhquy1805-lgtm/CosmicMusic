@@ -7,11 +7,14 @@ using CosmicMusic.Views;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Maui.Storage; // 👇 THÊM: Để gọi Preferences không bị lỗi
+using Microsoft.Maui.ApplicationModel; // 👇 THÊM: Để gọi MainThread không bị lỗi
+using System;
 
 namespace CosmicMusic.ViewModels
 {
-    // 👇 BỔ SUNG: Khai báo thêm IRecipient<RefreshLibraryMessage> để nhận lệnh làm mới
-    public partial class HomeViewModel : ObservableObject, IRecipient<SongPlayedMessage>, IRecipient<RefreshLibraryMessage>
+    // 👇 BỔ SUNG: Khai báo thêm IRecipient<UserAvatarChangedMessage> ở cuối dòng này
+    public partial class HomeViewModel : ObservableObject, IRecipient<SongPlayedMessage>, IRecipient<RefreshLibraryMessage>, IRecipient<UserAvatarChangedMessage>
     {
         private readonly FirestoreService _firestoreService;
         private readonly AudioViewModel _audioViewModel;
@@ -43,6 +46,8 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private ObservableCollection<Song> _recommendedSongs = new();
         [ObservableProperty] private string _recommendationTitle;
         [ObservableProperty] private bool _hasRecommendations = false;
+        [ObservableProperty]
+        private string _headerPhotoUrl;
 
         [ObservableProperty] private bool _hasRecentlyPlayed;
 
@@ -60,8 +65,14 @@ namespace CosmicMusic.ViewModels
             // 👇 BỔ SUNG: Lắng nghe thư yêu cầu Tải lại dữ liệu (Khi có bài hát/ca sĩ mới)
             WeakReferenceMessenger.Default.Register<RefreshLibraryMessage>(this);
 
+            // 👇 BỔ SUNG: Đăng ký nghe thư báo thay đổi Avatar
+            WeakReferenceMessenger.Default.Register<UserAvatarChangedMessage>(this);
+
             LoadUserAvatar();
             LoadDataFromFirebase();
+
+            // Lấy link ảnh từ máy tính bảng (nếu có)
+            HeaderPhotoUrl = Preferences.Get("UserPhotoUrl", "");
         }
 
         // MAUI Tự động gọi hàm này khi có tin nhắn SongPlayedMessage từ Trình phát nhạc
@@ -100,6 +111,15 @@ namespace CosmicMusic.ViewModels
         {
             // Ra lệnh tải lại toàn bộ dữ liệu từ Firebase
             LoadDataFromFirebase();
+        }
+
+        // Hàm bắt thư báo ảnh thay đổi (Bạn đã viết rất đúng ở dưới, tôi đưa lên đây cho gọn chung nhóm Receive)
+        public void Receive(UserAvatarChangedMessage message)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                HeaderPhotoUrl = message.NewAvatarUrl;
+            });
         }
 
         // ==========================================================

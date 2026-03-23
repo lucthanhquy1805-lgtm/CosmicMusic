@@ -4,6 +4,7 @@
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
              xmlns:models="clr-namespace:CosmicMusic.Models"
+             xmlns:converters="clr-namespace:CosmicMusic.Converters"
              x:Class="CosmicMusic.Views.ProfilePage"
              x:DataType="viewmodels:ProfileViewModel"
              Shell.NavBarIsVisible="False"
@@ -20,6 +21,7 @@
     <ContentPage.Resources>
         <ResourceDictionary>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter"/>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -42,23 +44,48 @@
         <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
             <VerticalStackLayout Spacing="20" Padding="0,20">
 
-                <Border StrokeShape="RoundRectangle 60" 
-                        StrokeThickness="3"
-                        Stroke="{Binding AvatarBorderColor}"
-                        BackgroundColor="#251035" 
-                        HeightRequest="120" 
-                        WidthRequest="120"
-                        HorizontalOptions="Center">
-                    <Border.Shadow>
-                        <Shadow Brush="{Binding AvatarBorderColor}" Offset="0,0" Radius="20" Opacity="0.6"/>
-                    </Border.Shadow>
-                    <Label Text="{Binding UserAvatarText}" 
-                           TextColor="White" 
-                           FontSize="48" 
-                           FontFamily="MontserratBold" 
-                           HorizontalOptions="Center" 
-                           VerticalOptions="Center"/>
-                </Border>
+                <Grid HeightRequest="130" WidthRequest="130" HorizontalOptions="Center">
+
+                    <Border StrokeShape="RoundRectangle 60" 
+                            StrokeThickness="3"
+                            Stroke="{Binding AvatarBorderColor}"
+                            BackgroundColor="#251035" 
+                            HeightRequest="120" 
+                            WidthRequest="120"
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center"
+                           >
+                        <Border.Shadow>
+                            <Shadow Brush="{Binding AvatarBorderColor}" Offset="0,0" Radius="20" Opacity="0.6"/>
+                        </Border.Shadow>
+
+                        <Grid>
+                            <Label Text="{Binding UserAvatarText}" 
+                                   TextColor="White" 
+                                   FontSize="48" 
+                                   FontFamily="MontserratBold" 
+                                   HorizontalOptions="Center" 
+                                   VerticalOptions="Center"
+                                   IsVisible="{Binding PhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=False}"/>
+
+                            <Image Source="{Binding PhotoUrl}"
+                                   Aspect="AspectFill"
+                                   IsVisible="{Binding PhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=True}"/>
+                        </Grid>
+                    </Border>
+
+                    <Border BackgroundColor="#D946EF"
+                            StrokeShape="RoundRectangle 15"
+                            HeightRequest="30" WidthRequest="30"
+                            HorizontalOptions="End" VerticalOptions="End"
+                            Margin="0,0,5,5"
+                            StrokeThickness="0">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding EditAvatarCommand}"/>
+                        </Border.GestureRecognizers>
+                        <Label Text="✏️" TextColor="White" FontSize="14" HorizontalOptions="Center" VerticalOptions="Center" Margin="0,0,0,2"/>
+                    </Border>
+                </Grid>
 
                 <Label Text="{Binding UserName}" 
                        TextColor="White" 

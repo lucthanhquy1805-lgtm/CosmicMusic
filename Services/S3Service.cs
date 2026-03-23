@@ -9,13 +9,11 @@ namespace CosmicMusic.Services
 {
     public class S3Service
     {
-        // 👇 1. BẠN HÃY ĐIỀN LẠI MÃ AWS MỚI CỦA BẠN VÀO ĐÂY NHÉ 👇
-        // (LƯU Ý: Nhớ xóa trắng 2 dòng Key này trước khi push lên GitHub lần sau nhé!)
+     
         private readonly string _bucketName = "cosmic-music-store-admin";
         private readonly string _accessKey = "";
         private readonly string _secretKey = "";
 
-        // Vùng máy chủ Singapore của bạn
         private readonly Amazon.RegionEndpoint _region = Amazon.RegionEndpoint.APSoutheast1;
 
         public async Task<string> UploadMp3Async(Stream fileStream, string fileName)
