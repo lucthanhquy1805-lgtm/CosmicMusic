@@ -18,20 +18,20 @@ namespace CosmicMusic.ViewModels
     {
         private readonly FirestoreService _firestoreService;
 
-        // MiniPlayer needs this
+     
         [ObservableProperty] private AudioViewModel _audioPlayer;
         [ObservableProperty] private bool _isBusy;
 
-        // Display Data (Binding)
+      
         [ObservableProperty] private string _coverImage;
         [ObservableProperty] private string _mainTitle;
         [ObservableProperty] private string _subTitle;
         [ObservableProperty] private bool _isAlbumType;
 
-        // Internal data to know what is being viewed
-        private string _currentId;     // Playlist ID (if viewing playlist)
-        private string _currentType;   // "Playlist", "Album", "Artist", or "Favorites"
-        private Album _receivedAlbum;  // Album data received from Home
+      
+        private string _currentId;    
+        private string _currentType;   
+        private Album _receivedAlbum;  
 
         public ObservableCollection<Song> Songs { get; } = new();
 
@@ -41,14 +41,12 @@ namespace CosmicMusic.ViewModels
             AudioPlayer = audioPlayer;
         }
 
-        // ==========================================================
-        // 1. NHẬN DỮ LIỆU TỪ CÁC TRANG KHÁC CHUYỂN SANG
-        // ==========================================================
+       
         public async void ApplyQueryAttributes(IDictionary<string, object> query)
         {
-            Songs.Clear(); // Clear old data first
+            Songs.Clear(); 
 
-            // CASE 0: Received from Library (Favorites)
+          
             if (query.ContainsKey("Type") && query["Type"].ToString() == "Favorites")
             {
                 _currentType = "Favorites";
@@ -58,7 +56,7 @@ namespace CosmicMusic.ViewModels
                 IsAlbumType = false;
                 await LoadFavoriteSongs();
             }
-            // CASE 1: Received from Home Page (Album/Artist)
+           
             else if (query.ContainsKey("AlbumData"))
             {
                 _receivedAlbum = query["AlbumData"] as Album;
@@ -67,7 +65,7 @@ namespace CosmicMusic.ViewModels
                     MainTitle = _receivedAlbum.Title;
                     CoverImage = _receivedAlbum.CoverImage;
 
-                    // Phân biệt đây là Album hay là trang Nghệ sĩ
+                   
                     if (_receivedAlbum.Description == "Artist")
                     {
                         _currentType = "Artist";
@@ -83,7 +81,7 @@ namespace CosmicMusic.ViewModels
                     await LoadSongsFromGlobal();
                 }
             }
-            // CASE 2: Received from Library Page (Personal Playlist)
+           
             else if (query.ContainsKey("Id"))
             {
                 _currentId = query["Id"].ToString();
@@ -99,9 +97,7 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        // ==========================================================
-        // 2. CÁC HÀM LẤY NHẠC TỪ FIREBASE TƯƠNG ỨNG
-        // ==========================================================
+        
 
         private async Task LoadFavoriteSongs()
         {
@@ -140,12 +136,12 @@ namespace CosmicMusic.ViewModels
 
                 if (_currentType == "Artist")
                 {
-                    // Lấy bài hát theo ID Nghệ sĩ
+                    
                     fetchedSongs = await _firestoreService.GetSongsByArtistIdAsync(_receivedAlbum.Id);
                 }
                 else if (_currentType == "Album")
                 {
-                    // Lấy bài hát theo ID Album
+                    
                     fetchedSongs = await _firestoreService.GetSongsByAlbumIdAsync(_receivedAlbum.Id);
                 }
 
@@ -164,9 +160,7 @@ namespace CosmicMusic.ViewModels
             finally { IsBusy = false; }
         }
 
-        // ==========================================================
-        // 3. CÁC HÀM PHỤ TRỢ (Cập nhật giao diện, Đếm Like)
-        // ==========================================================
+        
         private void UpdateTotalLikesSubtitle()
         {
             int totalLikes = 0;
@@ -190,10 +184,8 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        // ==========================================================
-        // 4. LỆNH ĐIỀU KHIỂN & TƯƠNG TÁC (ĐÃ BỌC THÉP VIP VÀ CHỐNG SPAM)
-        // ==========================================================
-        private bool _isNavigating = false; // 🔒 Ổ khóa chống click đúp
+       
+        private bool _isNavigating = false; 
 
         [RelayCommand]
         public async Task PlaySong(Song song)
@@ -210,7 +202,7 @@ namespace CosmicMusic.ViewModels
                 {
                     bool answer = await Shell.Current.DisplayAlert("Premium Content 👑", "Bài này dành cho VIP. Nâng cấp nhé?", "Xem gói VIP", "Để sau");
                     if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
-                    return; // 🛑 CHẶN KHÔNG CHO PHÁT
+                    return; 
                 }
 
                 AudioPlayer.PlaySong(song, Songs);
@@ -235,26 +227,26 @@ namespace CosmicMusic.ViewModels
                 bool isVip = Preferences.Get("IsPremium", false);
                 var playableSongs = new ObservableCollection<Song>();
 
-                // BỘ LỌC CỨNG: Tách hẳn một danh sách chỉ chứa những bài được phép nghe
+               
                 if (isVip)
                 {
-                    foreach (var s in Songs) playableSongs.Add(s); // VIP được nghe hết
+                    foreach (var s in Songs) playableSongs.Add(s); 
                 }
                 else
                 {
-                    var freeSongs = Songs.Where(s => !s.IsPremium).ToList(); // Dân thường chỉ lấy bài không có mác Premium
+                    var freeSongs = Songs.Where(s => !s.IsPremium).ToList(); 
                     foreach (var s in freeSongs) playableSongs.Add(s);
                 }
 
-                // Nếu Album toàn là bài VIP mà user không phải VIP
+               
                 if (playableSongs.Count == 0)
                 {
                     bool answer = await Shell.Current.DisplayAlert("Premium Album 👑", "Toàn bộ bài hát trong danh sách này dành riêng cho VIP. Nâng cấp ngay?", "Nâng cấp", "Đóng");
                     if (answer) await Shell.Current.GoToAsync(nameof(PremiumPage));
-                    return; // 🛑 CHẶN KHÔNG CHO PHÁT
+                    return; 
                 }
 
-                // Nếu có trộn lẫn cả VIP và Thường
+               
                 if (!isVip && playableSongs.Count < Songs.Count)
                 {
                     await Shell.Current.DisplayAlert("Lưu ý", "Bạn đang dùng tài khoản thường. Hệ thống chỉ phát các bài miễn phí trong danh sách này.", "OK");
@@ -262,8 +254,7 @@ namespace CosmicMusic.ViewModels
 
                 AudioPlayer.IsShuffle = false;
 
-                // QUAN TRỌNG NHẤT: Bơm cái danh sách ĐÃ ĐƯỢC LỌC (playableSongs) cho Nhạc trưởng.
-                // Từ giờ Nhạc trưởng có tự động Next cũng không bao giờ đụng tới bài VIP!
+                
                 AudioPlayer.PlaySong(playableSongs[0], playableSongs);
                 await Shell.Current.GoToAsync(nameof(PlayerPage));
             }
@@ -286,7 +277,7 @@ namespace CosmicMusic.ViewModels
                 bool isVip = Preferences.Get("IsPremium", false);
                 var playableSongs = new ObservableCollection<Song>();
 
-                // Lọc danh sách giống hệt hàm PlayAll
+             
                 if (isVip)
                 {
                     foreach (var s in Songs) playableSongs.Add(s);
@@ -314,7 +305,7 @@ namespace CosmicMusic.ViewModels
 
                 AudioPlayer.IsShuffle = true;
 
-                // QUAN TRỌNG: Nhạc trưởng chỉ nhận danh sách bài được phép nghe!
+               
                 AudioPlayer.PlaySong(playableSongs[index], playableSongs);
                 await Shell.Current.GoToAsync(nameof(PlayerPage));
             }

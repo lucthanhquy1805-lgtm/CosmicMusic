@@ -18,10 +18,6 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty]
         private bool _isBusy;
 
-        // ==========================================================
-        // 1. DANH SÁCH DỮ LIỆU
-        // ==========================================================
-
         public ObservableCollection<Playlist> UserPlaylists { get; } = new();
         public ObservableCollection<Song> FavoriteSongs { get; set; } = new();
 
@@ -42,9 +38,7 @@ namespace CosmicMusic.ViewModels
             });
         }
 
-        // ==========================================================
-        // 2. HÀM TẢI DỮ LIỆU (ĐÃ KIỂM TRA KỸ BẢO VỆ NULL)
-        // ==========================================================
+       
         [RelayCommand]
         public async Task LoadLibrary()
         {
@@ -62,7 +56,7 @@ namespace CosmicMusic.ViewModels
                     return;
                 }
 
-                // Tải Playlist
+          
                 var playlists = await _firestoreService.GetUserPlaylists(uid);
                 UserPlaylists.Clear();
                 if (playlists != null && playlists.Count > 0)
@@ -70,7 +64,7 @@ namespace CosmicMusic.ViewModels
                     foreach (var p in playlists) UserPlaylists.Add(p);
                 }
 
-                // Tải Danh sách Yêu thích
+          
                 var favSongs = await _firestoreService.GetFavoritesAsync();
                 FavoriteSongs.Clear();
                 if (favSongs != null && favSongs.Count > 0)
@@ -78,7 +72,7 @@ namespace CosmicMusic.ViewModels
                     foreach (var s in favSongs) FavoriteSongs.Add(s);
                 }
 
-                // Cập nhật trạng thái hiển thị
+              
                 HasFavorites = FavoriteSongs.Count > 0;
             }
             catch (Exception ex)
@@ -91,9 +85,7 @@ namespace CosmicMusic.ViewModels
             }
         }
 
-        // ==========================================================
-        // 3. XỬ LÝ PLAYLIST
-        // ==========================================================
+       
         [RelayCommand]
         public async Task TapPlaylist(Playlist playlist)
         {
@@ -136,9 +128,7 @@ namespace CosmicMusic.ViewModels
             finally { IsBusy = false; }
         }
 
-        // ==========================================================
-        // 4. XỬ LÝ BÀI HÁT YÊU THÍCH
-        // ==========================================================
+       
 
         [RelayCommand]
         public async Task PlayFavoriteSong(Song song)
@@ -173,7 +163,7 @@ namespace CosmicMusic.ViewModels
                     FavoriteSongs.Remove(song);
                     HasFavorites = FavoriteSongs.Count > 0;
 
-                    // Giảm like đi 1
+                 
                     song.LikeCount = Math.Max(0, song.LikeCount - 1);
                     _ = _firestoreService.UpdateGlobalLikeCount(song, -1);
                 }

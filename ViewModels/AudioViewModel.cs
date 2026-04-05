@@ -7,10 +7,13 @@ using CosmicMusic.Models;
 using CosmicMusic.Services;
 using System.Collections.ObjectModel;
 using System.Linq;
+using CommunityToolkit.Maui.Alerts;
+using CommunityToolkit.Maui.Core;
 
 namespace CosmicMusic.ViewModels
 {
     public class RefreshLibraryMessage { }
+    public class RefreshRecentlyPlayedMessage { }
 
 
     public class SongPlayedMessage
@@ -43,6 +46,7 @@ namespace CosmicMusic.ViewModels
         {
             _firestoreService = firestoreService;
             _lyricsService = new LyricsService();
+          
 
             FavoriteColor = "#A569F7";
             IsFavorite = false;
@@ -62,7 +66,7 @@ namespace CosmicMusic.ViewModels
                     else if (m.Action == "NEXT") Next();
                     else if (m.Action == "PREV") Previous();
 
-                    // 👇 THÊM ĐOẠN NÀY ĐỂ BẮT LỆNH TUA NHẠC 👇
+               
                     else if (m.Action != null && m.Action.StartsWith("SEEK:"))
                     {
                         if (long.TryParse(m.Action.Substring(5), out long ms))
@@ -74,10 +78,6 @@ namespace CosmicMusic.ViewModels
             });
         }
         private bool _isLrcLyrics = false;
-
-        // ==========================================================
-        // CÁC THUỘC TÍNH (GIỮ NGUYÊN CỦA BẠN)
-        // ==========================================================
         [ObservableProperty] private Song _currentSong;
         [ObservableProperty] private bool _isPlaying;
         [ObservableProperty][NotifyPropertyChangedFor(nameof(TotalDurationText))] private TimeSpan _duration;
@@ -99,10 +99,13 @@ namespace CosmicMusic.ViewModels
 
         [ObservableProperty][NotifyPropertyChangedFor(nameof(ShuffleColor))] private bool _isShuffle;
         public string ShuffleColor => IsShuffle ? "#D946EF" : "#FFFFFF";
+       
+        
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(RepeatColor))]
         [NotifyPropertyChangedFor(nameof(RepeatIcon))]
+
         private int _repeatMode;
 
         public string RepeatColor => RepeatMode == 0 ? "#FFFFFF" : "#D946EF";
@@ -110,9 +113,7 @@ namespace CosmicMusic.ViewModels
 
         partial void OnRepeatModeChanged(int value) => IsRepeat = value > 0;
 
-        // ==========================================================
-        // 👇 BỔ SUNG TÍNH NĂNG ĐỒNG BỘ LỜI NHẠC (OFFSET) 👇
-        // ==========================================================
+        
         [ObservableProperty]
         private double _lyricsOffset = 0;
 
@@ -121,28 +122,25 @@ namespace CosmicMusic.ViewModels
         [RelayCommand]
         public void LyricsFaster()
         {
-            LyricsOffset += 0.5; // Kéo lời nhanh lên
+            LyricsOffset += 0.5; 
             ForceRefreshLyrics();
         }
+        
+
 
         [RelayCommand]
         public void LyricsSlower()
         {
-            LyricsOffset -= 0.5; // Kéo lời chậm lại
+            LyricsOffset -= 0.5; 
             ForceRefreshLyrics();
         }
         private void ForceRefreshLyrics()
         {
-            _currentLyricIndex = -1; // Reset bộ nhớ
-            foreach (var line in SyncedLyrics) line.IsCurrent = false; // Tắt hết màu
-            SyncLyricWithTime(CurrentPosition); // Quét và tính toán lại ngay lập tức
+            _currentLyricIndex = -1; 
+            foreach (var line in SyncedLyrics) line.IsCurrent = false; 
+            SyncLyricWithTime(CurrentPosition); 
         }
-        // ==========================================================
-
-
-        // ==========================================================
-        // MEDIA ELEMENT (GIỮ NGUYÊN)
-        // ==========================================================
+        
         public void SetMediaElement(MediaElement newMediaElement)
         {
             if (_mediaElement == newMediaElement) return;
@@ -183,7 +181,7 @@ namespace CosmicMusic.ViewModels
         {
             if (_mediaElement != null) Duration = _mediaElement.Duration;
 
-            // THÊM ĐÚNG 1 DÒNG NÀY LÀ THANH THỜI GIAN HẾT ĐƠ
+           
             UpdateAndroidService();
         }
 
@@ -202,10 +200,6 @@ namespace CosmicMusic.ViewModels
 
         private void OnMediaEnded(object sender, EventArgs e) => Next();
 
-
-        // ==========================================================
-        // 4. HÀM PHÁT NHẠC (ĐÃ FIX LỖI LOAD LYRIC CÓ SẴN)
-        // ==========================================================
         public void PlaySong(Song song, ObservableCollection<Song>? contextList = null)
         {
             if (song == null) return;
@@ -217,16 +211,16 @@ namespace CosmicMusic.ViewModels
                     bool answer = await Shell.Current.DisplayAlert("Premium Content 👑", $"Bài hát '{song.Title}' chỉ dành cho tài khoản VIP. Bạn có muốn nâng cấp không?", "Xem gói VIP", "Bỏ qua");
                     if (answer)
                     {
-                        await Shell.Current.GoToAsync("PremiumPage"); // Chuyển đến trang mua VIP
+                        await Shell.Current.GoToAsync("PremiumPage"); 
                     }
                 });
 
-                // NẾU ĐANG PHÁT DANH SÁCH (BẤM NEXT TRÚNG BÀI VIP) -> TỰ ĐỘNG BỎ QUA BÀI NÀY VÀ NHẢY BÀI TIẾP THEO
+                
                 if (contextList != null && contextList.Count > 1)
                 {
                     Next();
                 }
-                return; // 🔒 TỪ CHỐI PHÁT NHẠC
+                return; 
             }
 
             bool isSameSong = (CurrentSong != null && CurrentSong.Title == song.Title);
@@ -245,11 +239,7 @@ namespace CosmicMusic.ViewModels
             LyricsOffset = 0;
             _currentLyricIndex = -1;
             Duration = song.Duration > 0 ? TimeSpan.FromSeconds(song.Duration) : TimeSpan.Zero;
-
-            // 👇 BỔ SUNG: Reset lại độ lệch Lyrics về 0 mỗi khi qua bài hát mới
             LyricsOffset = 0;
-
-            // Reset Tim
             IsFavorite = false;
             FavoriteColor = "#A569F7";
             CurrentSong = song;
@@ -270,14 +260,12 @@ namespace CosmicMusic.ViewModels
                 });
             }
 
-            // 👇👇 BỔ SUNG QUAN TRỌNG: Nếu bài hát ĐÃ CÓ SẴN LỜI (Từ Firebase), thì nạp vào Karaoke luôn!
+            
             if (!string.IsNullOrEmpty(CurrentSong.Lyrics))
             {
                 ParseLrcLyrics(CurrentSong.Lyrics);
             }
 
-            // Tìm Lyric (Nếu bài hát CHƯA CÓ LỜI)
-            // CƠ CHẾ TÌM LYRIC THÔNG MINH MỚI
             if (string.IsNullOrEmpty(CurrentSong.Lyrics))
             {
                 CurrentSong.Lyrics = "Đang tìm lời bài hát... ⏳";
@@ -285,25 +273,24 @@ namespace CosmicMusic.ViewModels
 
                 Task.Run(async () =>
                 {
-                    // 1. ƯU TIÊN 1: Tìm trong Firebase xem có bản LRC nào xịn do User lưu không
+                  
                     string dbLyrics = await _firestoreService.GetLyricsFromDatabaseAsync(CurrentSong.Id);
 
                     if (!string.IsNullOrEmpty(dbLyrics))
                     {
-                        // Nếu có, nạp ngay vào màn hình
+                      
                         CurrentSong.Lyrics = dbLyrics;
                         ParseLrcLyrics(dbLyrics);
                     }
                     else
                     {
-                        // 2. NẾU TRỐNG: Mới cầu cứu API mạng
+                       
                         string foundLyrics = await _lyricsService.GetLyricsAsync(CurrentSong.Title, CurrentSong.Artist);
                         if (!string.IsNullOrEmpty(foundLyrics))
                         {
                             CurrentSong.Lyrics = foundLyrics;
                             ParseLrcLyrics(foundLyrics);
 
-                            // CHỈ LƯU TỰ ĐỘNG NẾU DATABASE TRỐNG HOÀN TOÀN
                             _ = Task.Run(() => _firestoreService.UpdateSongLyricsAsync(CurrentSong));
                         }
                         else
@@ -316,7 +303,7 @@ namespace CosmicMusic.ViewModels
                 });
             }
 
-            // Check Tim từ ROOT Collection Favorites
+           
             Task.Run(async () =>
             {
                 try
@@ -340,13 +327,26 @@ namespace CosmicMusic.ViewModels
             string uid = Preferences.Get("UserId", "");
             if (!string.IsNullOrEmpty(uid))
             {
-                Task.Run(() => _firestoreService.AddToRecentlyPlayedAsync(uid, song));
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        
+                        await _firestoreService.AddToRecentlyPlayedAsync(uid, song);
+
+                        
+                        WeakReferenceMessenger.Default.Send(new RefreshRecentlyPlayedMessage());
+
+                       
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"❌ Lỗi lưu Nghe gần đây: {ex.Message}");
+                    }
+                });
             }
         }
 
-        // ==========================================================
-        // 👇👇 5. ĐÃ SỬA: LOGIC NÚT THẢ TIM HOÀN TOÀN MỚI 👇👇
-        // ==========================================================
         [RelayCommand]
         public async Task ToggleFavorite()
         {
@@ -358,7 +358,7 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
-            // 1. Giao diện thay đổi ngay lập tức để người dùng không phải chờ
+          
             IsFavorite = !IsFavorite;
             FavoriteColor = IsFavorite ? "Red" : "#A569F7";
 
@@ -366,43 +366,41 @@ namespace CosmicMusic.ViewModels
             {
                 if (IsFavorite)
                 {
-                    // LƯU VÀO YÊU THÍCH (Root Collection)
+                 
                     await _firestoreService.AddToFavoritesAsync(CurrentSong);
 
-                    // Tăng Like Global
+              
                     CurrentSong.LikeCount++;
                     _ = _firestoreService.UpdateGlobalLikeCount(CurrentSong, 1);
                 }
                 else
                 {
-                    // XÓA KHỎI YÊU THÍCH
+                
                     await _firestoreService.RemoveFromFavoritesAsync(CurrentSong);
 
-                    // Giảm Like Global
+                
                     CurrentSong.LikeCount = Math.Max(0, CurrentSong.LikeCount - 1);
                     _ = _firestoreService.UpdateGlobalLikeCount(CurrentSong, -1);
                 }
 
-                // Gửi thông báo để trang Library tự động tải lại
                 WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
             }
             catch (Exception ex)
             {
-                // Nếu lỗi, trả lại giao diện như cũ
+              
                 IsFavorite = !IsFavorite;
                 FavoriteColor = IsFavorite ? "Red" : "#A569F7";
                 System.Diagnostics.Debug.WriteLine($"Lỗi Thả Tim: {ex.Message}");
             }
         }
 
-        // Các lệnh khác giữ nguyên...
         [ObservableProperty] private bool _isEditingLyrics = false;
         [ObservableProperty] private string _editLyricsText;
         [RelayCommand]
         public void ToggleEditLyrics()
         {
             IsEditingLyrics = !IsEditingLyrics;
-            if (IsEditingLyrics) EditLyricsText = CurrentSong?.Lyrics; // Mở lên thì nạp chữ cũ vào
+            if (IsEditingLyrics) EditLyricsText = CurrentSong?.Lyrics; 
         }
         [RelayCommand]
         public async Task SaveLyrics()
@@ -410,21 +408,21 @@ namespace CosmicMusic.ViewModels
             if (CurrentSong == null) return;
             IsEditingLyrics = false;
 
-            // Ép nhận chữ mới nhất từ giao diện
+        
             CurrentSong.Lyrics = EditLyricsText;
 
-            // Dùng Dispatcher để đảm bảo UI thực sự "vẽ" lại chữ mới ngay lập tức
+          
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 ParseLrcLyrics(CurrentSong.Lyrics);
 
-                // Mẹo nhỏ: Báo cho UI biết là biến CurrentSong đã thay đổi hoàn toàn
+               
                 var tempSong = CurrentSong;
                 CurrentSong = null;
                 CurrentSong = tempSong;
             });
 
-            // Gửi lên Firebase
+        
             bool success = await _firestoreService.UpdateSongLyricsAsync(CurrentSong);
             if (success)
                 await Shell.Current.DisplayAlert("Thành công", "Đã cập nhật lời bài hát! 💖", "OK");
@@ -439,7 +437,6 @@ namespace CosmicMusic.ViewModels
             if (IsPlaying) { _mediaElement.Pause(); IsPlaying = false; }
             else { _mediaElement.Play(); IsPlaying = true; }
 
-            // 👇 THÊM DÒNG NÀY 👇
             UpdateAndroidService();
         }
         [RelayCommand] public void DragStarted() => _isDraggingSlider = true;
@@ -449,19 +446,17 @@ namespace CosmicMusic.ViewModels
             if (_mediaElement != null)
             {
                 await _mediaElement.SeekTo(CurrentPosition);
-                await Task.Delay(200); // Chờ nhạc load 1 nhịp để bắt time cho chuẩn
+                await Task.Delay(200); 
             }
             _isDraggingSlider = false;
-            SyncLyricWithTime(CurrentPosition); // Bắt lại đúng câu hát đó
+            SyncLyricWithTime(CurrentPosition); 
             UpdateAndroidService();
         }
         [RelayCommand] public void ToggleShuffle() => IsShuffle = !IsShuffle;
         [RelayCommand] public void ToggleRepeat() => RepeatMode = (RepeatMode + 1) % 3;
 
 
-        // ==========================================================
-        // LỆNH LÙI TRANG (ÉP RÚT TRANG VẬT LÝ - BYPASS LỖI SHELL)
-        // ==========================================================
+        
         [RelayCommand]
         public async Task GoBack()
         {
@@ -472,13 +467,12 @@ namespace CosmicMusic.ViewModels
             {
                 try
                 {
-                    // Lệnh Pop vật lý tuyệt đối: Không kiểm tra điều kiện, 
-                    // ép hệ thống gỡ trang hiện tại ra khỏi màn hình ngay lập tức!
+                    
                     await Shell.Current.Navigation.PopAsync();
                 }
                 catch
                 {
-                    // Phương án dự phòng cuối cùng
+                   
                     try { await Shell.Current.GoToAsync(".."); } catch { }
                 }
             });
@@ -527,14 +521,12 @@ namespace CosmicMusic.ViewModels
             IsPlaying = false; CurrentSong = null; Playlist.Clear();
             CurrentPosition = TimeSpan.Zero; Duration = TimeSpan.Zero;
 
-            // 👇 THÊM DÒNG NÀY: Báo màn hình khóa tắt nhạc
+        
             UpdateAndroidService();
         }
 
         [RelayCommand] public void ToggleLyrics() => IsLyricsVisible = !IsLyricsVisible;
-        // ==========================================================
-        // TÍNH NĂNG THÊM VÀO PLAYLIST CÁ NHÂN
-        // ==========================================================
+       
         [RelayCommand]
         public async Task AddToPlaylist()
         {
@@ -546,7 +538,7 @@ namespace CosmicMusic.ViewModels
                 return;
             }
 
-            // Hiện menu chọn
+          
             string action = await Shell.Current.DisplayActionSheet("Lưu bài hát", "Hủy", null, "Thêm vào Playlist có sẵn", "Tạo Playlist mới");
 
             if (action == "Tạo Playlist mới")
@@ -557,13 +549,13 @@ namespace CosmicMusic.ViewModels
                     await _firestoreService.CreatePlaylistAndAddSong(uid, name, CurrentSong);
                     await Shell.Current.DisplayAlert("Thành công", $"Đã tạo và thêm vào '{name}'", "OK");
 
-                    // Báo cho trang Library load lại
+                
                     WeakReferenceMessenger.Default.Send(new RefreshLibraryMessage());
                 }
             }
             else if (action == "Thêm vào Playlist có sẵn")
             {
-                // Gọi Firebase lấy danh sách list của User
+             
                 var playlists = await _firestoreService.GetUserPlaylists(uid);
                 if (playlists != null && playlists.Count > 0)
                 {
@@ -586,19 +578,14 @@ namespace CosmicMusic.ViewModels
                 }
             }
         }
-        // ==========================================================
-        // XỬ LÝ LYRIC CHẠY THEO THỜI GIAN (KARAOKE)
-        // ==========================================================
+       
         private void ParseLrcLyrics(string rawLyrics)
         {
             MainThread.BeginInvokeOnMainThread(() => SyncedLyrics.Clear());
             if (string.IsNullOrEmpty(rawLyrics)) return;
 
             var parsedLyrics = new List<LyricLine>();
-            _isLrcLyrics = false; // Mặc định là chữ thường
-
-            // 👇 CHUẨN HÓA THÔNG MINH: Xuống dòng trước dấu '[' để trị lỗi dính chữ từ Firebase,
-            // nhưng VẪN GIỮ NGUYÊN các dấu xuống dòng của bài hát chữ thường.
+            _isLrcLyrics = false; 
             string normalizedLyrics = rawLyrics.Replace("[", "\n[");
             var lines = normalizedLyrics.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
@@ -610,7 +597,6 @@ namespace CosmicMusic.ViewModels
                 int startBracket = trimLine.IndexOf('[');
                 int endBracket = trimLine.IndexOf(']');
 
-                // Nếu có dấu thời gian
                 if (startBracket >= 0 && endBracket > startBracket)
                 {
                     string timeStr = trimLine.Substring(startBracket + 1, endBracket - startBracket - 1);
@@ -622,20 +608,20 @@ namespace CosmicMusic.ViewModels
                         double.TryParse(timeParts[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double sec))
                     {
                         parsedLyrics.Add(new LyricLine { Time = TimeSpan.FromSeconds(min * 60 + sec), Text = textStr, IsCurrent = false });
-                        _isLrcLyrics = true; // Bật cờ hiệu: Đây là nhạc Karaoke!
+                        _isLrcLyrics = true; 
                     }
                     else
                     {
                         parsedLyrics.Add(new LyricLine { Time = TimeSpan.Zero, Text = trimLine, IsCurrent = false });
                     }
                 }
-                else // Dòng chữ thường
+                else 
                 {
                     parsedLyrics.Add(new LyricLine { Time = TimeSpan.Zero, Text = trimLine, IsCurrent = false });
                 }
             }
 
-            // 👇 NẾU LÀ KARAOKE thì sắp xếp thời gian. NẾU LÀ CHỮ THƯỜNG thì giữ nguyên gốc của văn bản
+          
             if (_isLrcLyrics)
             {
                 parsedLyrics = parsedLyrics.OrderBy(x => x.Time).ToList();
@@ -645,7 +631,7 @@ namespace CosmicMusic.ViewModels
             {
                 foreach (var item in parsedLyrics) SyncedLyrics.Add(item);
 
-                // MẸO: Ngay khi load xong chữ, lập tức gửi thư báo giao diện kéo lên DÒNG ĐẦU TIÊN
+                
                 if (parsedLyrics.Count > 0)
                 {
                     WeakReferenceMessenger.Default.Send(new LyricScrolledMessage(parsedLyrics[0]));
@@ -657,14 +643,13 @@ namespace CosmicMusic.ViewModels
         {
             if (!_isLrcLyrics || SyncedLyrics.Count == 0) return;
 
-            // 1. Tính thời gian đã bù trừ Offset (Không để bị âm)
             double effectiveSeconds = currentPosition.TotalSeconds + LyricsOffset;
             if (effectiveSeconds < 0) effectiveSeconds = 0;
             TimeSpan effectivePosition = TimeSpan.FromSeconds(effectiveSeconds);
 
             int newIndex = -1;
 
-            // 2. Quét tìm câu hiện tại (Chỉ lấy câu cuối cùng thỏa mãn điều kiện)
+          
             for (int i = 0; i < SyncedLyrics.Count; i++)
             {
                 if (effectivePosition >= SyncedLyrics[i].Time)
@@ -673,24 +658,24 @@ namespace CosmicMusic.ViewModels
                 }
                 else
                 {
-                    break; // Tối ưu: Vượt quá thời gian thì dừng luôn không quét nữa
+                    break; 
                 }
             }
 
-            // 3. Nếu câu hát bị thay đổi (Bật màu câu mới, tắt câu cũ)
+         
             if (newIndex != _currentLyricIndex && newIndex != -1)
             {
-                // Tắt câu cũ
+              
                 if (_currentLyricIndex >= 0 && _currentLyricIndex < SyncedLyrics.Count)
                 {
                     SyncedLyrics[_currentLyricIndex].IsCurrent = false;
                 }
 
-                // Bật câu mới sáng lên
+             
                 SyncedLyrics[newIndex].IsCurrent = true;
                 _currentLyricIndex = newIndex;
 
-                // Ra lệnh cuộn giao diện đến đúng câu đó
+              
                 WeakReferenceMessenger.Default.Send(new LyricScrolledMessage(SyncedLyrics[newIndex]));
             }
         }
@@ -699,16 +684,13 @@ namespace CosmicMusic.ViewModels
         {
             if (selectedLyric == null || _mediaElement == null) return;
 
-            // ĐÃ SỬA: Đổi dấu CỘNG thành dấu TRỪ để logic khớp với thực tế
+           
             double targetSeconds = selectedLyric.Time.TotalSeconds - LyricsOffset;
 
-            // Đảm bảo không tua số âm (vượt quá đầu bài hát)
             if (targetSeconds < 0) targetSeconds = 0;
 
-            // ĐÃ SỬA: Dùng đúng tên biến _mediaElement và hàm SeekTo(TimeSpan)
             await _mediaElement.SeekTo(TimeSpan.FromSeconds(targetSeconds));
 
-            // Cập nhật lại thanh Slider cho đồng bộ ngay lập tức
             CurrentPosition = TimeSpan.FromSeconds(targetSeconds);
             OnPropertyChanged(nameof(CurrentPositionSeconds));
         }
@@ -719,12 +701,8 @@ namespace CosmicMusic.ViewModels
             {
                 var newPos = TimeSpan.FromMilliseconds(ms);
                 await _mediaElement.SeekTo(newPos);
-                CurrentPosition = newPos;
-
-                // Cập nhật lại màu của chữ Karaoke nếu đang bật lời
+                CurrentPosition = newPos;         
                 SyncLyricWithTime(newPos);
-
-                // Báo lại cho Android biết MAUI đã tua xong
                 UpdateAndroidService();
             }
         }
@@ -737,12 +715,11 @@ namespace CosmicMusic.ViewModels
                 var context = global::Android.App.Application.Context;
                 var intent = new global::Android.Content.Intent(context, typeof(CosmicMusic.Platforms.Android.MusicService));
 
-                // Nạp đầy đủ thông tin để thanh thời gian (Seekbar) có thể chạy
+               
                 intent.PutExtra("title", CurrentSong.Title);
                 intent.PutExtra("artist", CurrentSong.Artist);
                 intent.PutExtra("isPlaying", IsPlaying);
 
-                // Tránh lỗi khi Duration chưa kịp load
                 long durationMs = Duration.TotalMilliseconds > 0 ? (long)Duration.TotalMilliseconds : (long)(CurrentSong.Duration * 1000);
                 intent.PutExtra("duration", durationMs);
                 intent.PutExtra("position", (long)(CurrentPosition.TotalMilliseconds));

@@ -137,21 +137,24 @@
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:LyricLine">
                                     <Label Text="{Binding Text}" 
-           HorizontalTextAlignment="Center"
-           LineHeight="1.5"
-           Margin="0,8"
-           FontFamily="MontserratBold">
+                                           HorizontalTextAlignment="Center"
+                                           LineHeight="1.5"
+                                           Margin="0,8"
+                                           FontFamily="MontserratBold">
 
                                         <Label.GestureRecognizers>
                                             <TapGestureRecognizer 
-                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AudioViewModel}}, Path=SeekToLyricCommand}" 
-                CommandParameter="{Binding .}"/>
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AudioViewModel}}, Path=SeekToLyricCommand}" 
+                                                CommandParameter="{Binding .}"/>                
                                         </Label.GestureRecognizers>
                                         <Label.Triggers>
                                             <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
                                                 <Setter Property="TextColor" Value="White"/>
                                                 <Setter Property="FontSize" Value="26"/>
                                                 <Setter Property="Opacity" Value="1.0"/>
+                                                <Setter Property="Shadow">
+                                                    <Shadow Brush="White" Offset="0,0" Radius="20" Opacity="0.6"/>
+                                                </Setter>
                                             </DataTrigger>
                                             <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="False">
                                                 <Setter Property="TextColor" Value="#88FFFFFF"/>
@@ -271,7 +274,7 @@
 
                 <Grid Grid.Column="1" VerticalOptions="Center" HorizontalOptions="Center" BackgroundColor="Transparent" WidthRequest="50" HeightRequest="50">
                     <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding PreviousCommand}" />
+                        <TapGestureRecognizer Command="{Binding  Command}" />
                     </Grid.GestureRecognizers>
                     <Path Data="{StaticResource IconPrevious}" Fill="White" Aspect="Uniform" HeightRequest="30" WidthRequest="30" HorizontalOptions="Center" VerticalOptions="Center"/>
                 </Grid>

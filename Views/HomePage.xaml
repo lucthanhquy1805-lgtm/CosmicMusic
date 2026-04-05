@@ -74,6 +74,7 @@
                     <VerticalStackLayout Spacing="15" Margin="0,0,0,10" IsVisible="{Binding HasRecentlyPlayed}">
                         <Label Text="Nghe gần đây" FontFamily="MontserratBold" FontSize="20" TextColor="#E0B0FF" Margin="20,0"/>
 
+                       
                         <CollectionView x:Name="RecentList" ItemsSource="{Binding RecentlyPlayed}" HeightRequest="180">
                             <CollectionView.ItemsLayout>
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="15"/>
