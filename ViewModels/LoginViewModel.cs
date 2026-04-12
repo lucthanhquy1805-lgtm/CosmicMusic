@@ -32,7 +32,7 @@ namespace CosmicMusic.ViewModels
             _firestoreService = firestoreService;
         }
 
-      
+
         [RelayCommand]
         public async Task Login()
         {
@@ -66,6 +66,7 @@ namespace CosmicMusic.ViewModels
                     string displayName = result.displayName ?? "Cosmic Traveler";
                     string idToken = result.idToken;
                     bool isPremium = false;
+                    bool isAdmin = false; // [THÊM 1] Khai báo biến isAdmin
 
                     // 👇 BỔ SUNG: Khai báo biến chứa link ảnh (Mặc định là rỗng)
                     string photoUrl = "";
@@ -78,6 +79,7 @@ namespace CosmicMusic.ViewModels
                     if (firestoreUser != null)
                     {
                         isPremium = firestoreUser.IsPremium;
+                        isAdmin = firestoreUser.IsAdmin; 
 
                         if (!string.IsNullOrEmpty(firestoreUser.DisplayName))
                         {
@@ -110,6 +112,7 @@ namespace CosmicMusic.ViewModels
 
                     // 👇 BỔ SUNG: Lưu link ảnh vừa lấy được xuống bộ nhớ máy để hiển thị ra UI
                     Preferences.Set("UserPhotoUrl", photoUrl);
+                    Preferences.Set("IsAdmin", isAdmin); // [THÊM 3] Lưu quyền Admin vào Preferences
 
                     // Vào App
                     await Shell.Current.GoToAsync($"//{nameof(HomePage)}");

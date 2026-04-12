@@ -1,8 +1,8 @@
 ﻿using CosmicMusic.ViewModels;
 using Microsoft.Maui.Dispatching;
 using System;
-using Microsoft.Maui.Controls; // Thêm thư viện này để dùng Animation
-
+using Microsoft.Maui.Controls; 
+using System.Threading.Tasks; 
 namespace CosmicMusic.Views;
 
 public partial class HomePage : ContentPage
@@ -23,12 +23,25 @@ public partial class HomePage : ContentPage
         _scrollTimer = Dispatcher.CreateTimer();
         _scrollTimer.Interval = TimeSpan.FromSeconds(4);
         _scrollTimer.Tick += OnAutoScrollTick;
+        if (RecentList != null) RecentList.Scrolled += OnListScrolled;
+        if (AlbumList != null) AlbumList.Scrolled += OnListScrolled;
+        if (ArtistList != null) ArtistList.Scrolled += OnListScrolled;
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
         _viewModel.LoadUserAvatar();
+
+      
+        if (BindingContext is HomeViewModel vm)
+        {
+            
+            Task.Run(async () => await vm.InitializeAsync());
+
+            
+        }
+    
 
         if (_viewModel.AudioPlayer != null && appMediaElement != null)
         {
@@ -37,7 +50,7 @@ public partial class HomePage : ContentPage
 
         _scrollTimer.Start();
 
-        // 👇 BẬT HIỆU ỨNG RỰC LỬA CHO MINIPLAYER KHI VÀO TRANG HOME 👇
+
         StartNeonPulseAnimation();
     }
 
@@ -46,44 +59,40 @@ public partial class HomePage : ContentPage
         base.OnDisappearing();
         _scrollTimer.Stop();
 
-        // 👇 TẮT HIỆU ỨNG KHI RỜI ĐI ĐỂ TIẾT KIỆM PIN 👇
+     
         MiniPlayerBorder?.AbortAnimation("NeonPulse");
     }
 
-    // ==========================================================
-    // CỖ MÁY HIỆU ỨNG "NHỊP THỞ NEON" CHO MINIPLAYER
-    // ==========================================================
+   
     private void StartNeonPulseAnimation()
     {
         if (MiniPlayerShadow == null || MiniPlayerBorder == null) return;
 
         var pulseAnimation = new Animation();
 
-        // 1. Nhịp tỏa sáng (Phình to bán kính Radius từ 5 lên 25, tăng Opacity)
+       
         var glowOut = new Animation(v =>
         {
             MiniPlayerShadow.Radius = (float)v;
-            MiniPlayerShadow.Opacity = (float)(v / 25); // Opacity linh động từ 0.2 đến 1.0
+            MiniPlayerShadow.Opacity = (float)(v / 25);
         }, 5, 25, Easing.CubicOut);
 
-        // 2. Nhịp mờ dần (Thu nhỏ bán kính từ 25 về 5, giảm Opacity)
+       
         var glowIn = new Animation(v =>
         {
             MiniPlayerShadow.Radius = (float)v;
             MiniPlayerShadow.Opacity = (float)(v / 25);
         }, 25, 5, Easing.CubicIn);
 
-        // Ghép 2 nhịp lại: 50% thời gian đầu phình ra, 50% thời gian sau thu vào
+       
         pulseAnimation.Add(0, 0.5, glowOut);
         pulseAnimation.Add(0.5, 1, glowIn);
 
-        // Chạy Animation lặp đi lặp lại vô tận (Mỗi chu kỳ mất 1.5 giây)
+       
         pulseAnimation.Commit(MiniPlayerBorder, "NeonPulse", length: 1500, easing: Easing.Linear, repeat: () => true);
     }
 
-    // ==========================================================
-    // LOGIC XỬ LÝ TỰ ĐỘNG CUỘN (Giữ nguyên của bạn)
-    // ==========================================================
+   
     private void OnAutoScrollTick(object sender, EventArgs e)
     {
         if (_viewModel == null) return;
@@ -107,6 +116,15 @@ public partial class HomePage : ContentPage
             _artistIdx++;
             if (_artistIdx >= _viewModel.TopArtists.Count) _artistIdx = 0;
             ArtistList.ScrollTo(_artistIdx, position: ScrollToPosition.Center, animate: true);
+        }
+    }
+    private void OnListScrolled(object sender, ItemsViewScrolledEventArgs e)
+    {
+        
+        if (_scrollTimer != null && _scrollTimer.IsRunning)
+        {
+            _scrollTimer.Stop();
+            _scrollTimer.Start();
         }
     }
 }

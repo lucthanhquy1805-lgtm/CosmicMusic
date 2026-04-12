@@ -20,6 +20,7 @@ namespace CosmicMusic
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(ChangePasswordPage), typeof(ChangePasswordPage));
             Routing.RegisterRoute(nameof(Views.AddSongPage), typeof(Views.AddSongPage));
+            Routing.RegisterRoute(nameof(AdminDashboardPage), typeof(AdminDashboardPage));
 
         }
 

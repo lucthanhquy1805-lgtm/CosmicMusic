@@ -76,6 +76,28 @@ namespace CosmicMusic.ViewModels
                     }
                 });
             });
+            WeakReferenceMessenger.Default.Register<SongUpdatedMessage>(this, (r, m) =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    var updatedSong = m.UpdatedSong;
+
+                   
+                    if (CurrentSong != null && CurrentSong.Id == updatedSong.Id)
+                    {
+                     
+                        CurrentSong.Title = updatedSong.Title;
+                        CurrentSong.Artist = updatedSong.Artist;
+                        CurrentSong.CoverImage = updatedSong.CoverImage;
+
+                       
+                        OnPropertyChanged(nameof(CurrentSong));
+
+                      
+                        UpdateAndroidService();
+                    }
+                });
+            });
         }
         private bool _isLrcLyrics = false;
         [ObservableProperty] private Song _currentSong;
@@ -735,6 +757,7 @@ namespace CosmicMusic.ViewModels
             }
 #endif
         }
+
 
     }
 }

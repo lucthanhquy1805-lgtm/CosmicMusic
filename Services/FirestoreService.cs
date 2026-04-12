@@ -58,6 +58,8 @@ namespace CosmicMusic.Services
                             info.DisplayName = nameVal.GetString();
                         if (fields.TryGetProperty("photoUrl", out var photoProp) && photoProp.TryGetProperty("stringValue", out var photoVal))
                             info.PhotoUrl = photoVal.GetString();
+                        if (fields.TryGetProperty("IsAdmin", out var adminProp) && adminProp.TryGetProperty("booleanValue", out var adminVal))
+                            info.IsAdmin = adminVal.GetBoolean();
                         return info;
                     }
                 }
@@ -293,6 +295,23 @@ namespace CosmicMusic.Services
                 System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc Firestore: {ex.Message}");
             }
             return songs;
+        }
+        public async Task<bool> DeleteSongAsync(string songId)
+        {
+            if (string.IsNullOrEmpty(songId)) return false;
+
+            // Trỏ thẳng tên lửa vào ID bài hát trên Firebase
+            string url = $"{_baseUrl}/songs/{songId}";
+            try
+            {
+                var response = await _httpClient.DeleteAsync(url);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi xóa bài hát: {ex.Message}");
+                return false;
+            }
         }
 
         // ==========================================================
@@ -1620,5 +1639,6 @@ namespace CosmicMusic.Services
         public bool IsPremium { get; set; }
         public string Email { get; set; }
         public string PhotoUrl { get; set; }
+        public bool IsAdmin { get; set; } = false;
     }
 }

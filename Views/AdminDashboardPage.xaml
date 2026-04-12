@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
+             xmlns:models="clr-namespace:CosmicMusic.Models"
+             x:Class="CosmicMusic.Views.AdminDashboardPage"
+             x:DataType="viewmodels:AdminDashboardViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Station Control"
+             BackgroundColor="#0B0510">
+  
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <Color x:Key="NeonPink">#FF1493</Color>
+            <Color x:Key="NeonGreen">#39FF14</Color>
+            <Color x:Key="TextMuted">#8A7A9E</Color>
+            <Color x:Key="PanelDark">#150A1F</Color>
+
+           
+            <x:String x:Key="IconRocket">M13.13,22.19L11.5,18.36C13.07,17.78 14.54,17 15.9,16.09L13.13,22.19M5.64,12.5L1.81,10.87L7.91,8.1C7,9.46 6.22,10.93 5.64,12.5M21.61,2.39C21.61,2.39 16.66,0.269 11,5.93C8.81,8.12 7.5,10.53 6.65,12.64C6.37,13.39 6.56,14.21 7.11,14.77L9.24,16.89C9.79,17.45 10.61,17.63 11.36,17.35C13.5,16.5 15.88,15.19 18.07,13C23.73,7.34 21.61,2.39 21.61,2.39M14.54,9.46C13.44,9.46 12.54,8.56 12.54,7.46C12.54,6.36 13.44,5.46 14.54,5.46C15.64,5.46 16.54,6.36 16.54,7.46C16.54,8.56 15.64,9.46 14.54,9.46M8.88,16.53L7.47,15.12L8.88,16.53M6.24,22L9.88,18.36C9.54,18.27 9.21,18.14 8.91,17.96L5.5,21.36V22H6.24M2,22H2.5L5.87,18.63C5.53,18.29 5.24,17.92 5,17.5L2,20.5V22Z</x:String>
+            <x:String x:Key="IconSearch">M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z</x:String>
+            <x:String x:Key="IconFilter">M14,12V19.88C14.04,20.18 13.94,20.5 13.71,20.71C13.32,21.1 12.69,21.1 12.3,20.71L10.29,18.7C10.06,18.47 9.96,18.16 10,17.87V12H9.97L4.21,4.62C3.87,4.19 3.95,3.56 4.38,3.22C4.57,3.08 4.78,3 5,3V3H19V3C19.22,3 19.43,3.08 19.62,3.22C20.05,3.56 20.13,4.19 19.79,4.62L14.03,12H14Z</x:String>
+            <x:String x:Key="IconEdit">M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z</x:String>
+            <x:String x:Key="IconDelete">M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z</x:String>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto, Auto, *" Margin="0" Padding="0">
+
+        
+     
+        <Grid Grid.Row="0" ColumnDefinitions="Auto, Auto, *, Auto" Padding="20,20,20,10">
+       
+            <ImageButton Grid.Column="0" Source="{FontImageSource Glyph='←', Color='White', Size=20}" Command="{Binding GoBackCommand}" BackgroundColor="Transparent" Margin="0,0,10,0"/>
+        
+            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                <Path Data="{StaticResource IconRocket}" Fill="{StaticResource NeonPink}" Aspect="Uniform" HeightRequest="20" WidthRequest="20"/>
+                <Label Text="STATION CONTROL" TextColor="{StaticResource NeonPink}" FontFamily="MontserratBold" FontSize="14" CharacterSpacing="2" VerticalOptions="Center"/>
+            </HorizontalStackLayout>
+    
+            <Path Grid.Column="3" Data="{StaticResource IconSearch}" Fill="{StaticResource NeonPink}" Aspect="Uniform" HeightRequest="20" WidthRequest="20" VerticalOptions="Center"/>
+        </Grid>
+
+       
+        <Grid Grid.Row="1" ColumnDefinitions="*, Auto" Padding="20,15,20,25">
+            <VerticalStackLayout Grid.Column="0" VerticalOptions="Center" Spacing="5">
+                <Label Text="Cosmic Library" TextColor="White" FontFamily="MontserratBold" FontSize="28"/>
+                <Label Text="{Binding AdminSongs.Count, StringFormat='MANAGING {0} INTERSTELLAR TRACKS'}" TextColor="{StaticResource TextMuted}" FontFamily="MontserratRegular" FontSize="9" CharacterSpacing="1.5" FontAttributes="Bold"/>
+            </VerticalStackLayout>
+
+
+            <Button Grid.Column="1" Text="+ SYNC NEW FREQUENCY" BackgroundColor="{StaticResource NeonPink}" TextColor="White" FontFamily="MontserratBold" FontSize="10" CharacterSpacing="1" CornerRadius="18" Padding="15,0" HeightRequest="36" VerticalOptions="Center"
+                    Command="{Binding GoToAddSongPageCommand}">
+                <Button.Shadow>
+                    <Shadow Brush="{StaticResource NeonPink}" Offset="0,0" Radius="15" Opacity="0.9"/>
+                </Button.Shadow>
+            </Button>
+        </Grid>
+
+       
+        <Border Grid.Row="2" BackgroundColor="{StaticResource PanelDark}" Stroke="#22150A1F" StrokeThickness="0" StrokeShape="RoundRectangle 20,20,0,0" Margin="10,0,10,0" Padding="15,20,15,0">
+            <Grid RowDefinitions="Auto, Auto, *">
+
+                
+                <Border Grid.Row="0" BackgroundColor="#1E1129" StrokeThickness="0" StrokeShape="RoundRectangle 10" HeightRequest="45" Padding="15,0" Margin="0,0,0,25">
+                    <Grid ColumnDefinitions="Auto, *, Auto, Auto" ColumnSpacing="15">
+
+                        <Grid Grid.Column="0" WidthRequest="25" HeightRequest="25" BackgroundColor="Transparent" VerticalOptions="Center">
+                            <Path Data="{StaticResource IconSearch}" Fill="{StaticResource TextMuted}" Aspect="Uniform" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding PerformSearchCommand}"/>
+                            </Grid.GestureRecognizers>
+                        </Grid>
+
+                        <Entry Grid.Column="1" Text="{Binding SearchKeyword}" ReturnCommand="{Binding PerformSearchCommand}" Placeholder="Search the nebula of songs..." PlaceholderColor="{StaticResource TextMuted}" TextColor="White" FontSize="13" BackgroundColor="Transparent" VerticalOptions="Center"/>
+
+                        <Border Grid.Column="2" BackgroundColor="#2C1B3D" StrokeThickness="0" StrokeShape="RoundRectangle 6" WidthRequest="30" HeightRequest="30" VerticalOptions="Center">
+                            <Path Data="{StaticResource IconFilter}" Fill="{StaticResource TextMuted}" Aspect="Uniform" HeightRequest="14" HorizontalOptions="Center" VerticalOptions="Center"/>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Table Header (Tiêu đề cột) -->
+                <!-- Thiết kế tỷ lệ: Cột 1(60) - Cột 2(*) - Cột 3(70) -->
+                <Grid Grid.Row="1" ColumnDefinitions="60, *, 85" Margin="0,0,0,15" Padding="5,0">
+                    <Label Grid.Column="0" Text="ORIGIN" TextColor="{StaticResource TextMuted}" FontSize="9" FontAttributes="Bold" CharacterSpacing="1.5" HorizontalOptions="Center"/>
+                    <Grid Grid.Column="1" ColumnDefinitions="*, 80">
+                        <Label Grid.Column="0" Text="TRANSMISSION TITLE" TextColor="{StaticResource TextMuted}" FontSize="9" FontAttributes="Bold" CharacterSpacing="1.5"/>
+                        <Label Grid.Column="1" Text="STATUS" TextColor="{StaticResource TextMuted}" FontSize="9" FontAttributes="Bold" CharacterSpacing="1.5"/>
+                    </Grid>
+                    <Label Grid.Column="2" Text="SEQUENCE" TextColor="{StaticResource TextMuted}" FontSize="9" FontAttributes="Bold" CharacterSpacing="1.5" HorizontalOptions="End" Margin="0,0,10,0"/>
+                </Grid>
+
+                <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Color="{StaticResource NeonPink}" HorizontalOptions="Center" VerticalOptions="Start" Margin="0,20,0,0"/>
+
+                <!-- Vòng lặp danh sách bài hát -->
+                <CollectionView Grid.Row="2" ItemsSource="{Binding AdminSongs}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Song">
+
+                            <!-- Bọc mỗi dòng trong Grid -->
+                            <Grid ColumnDefinitions="60, *, 85" Margin="0,0,0,20" Padding="5,0">
+
+                                <!-- Cột 1: Ảnh đại diện dạng tròn (Origin) -->
+                                <Frame Grid.Column="0" CornerRadius="20" HeightRequest="40" WidthRequest="40" Padding="0" IsClippedToBounds="True" BorderColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Image Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                </Frame>
+
+                                <!-- Cột 2: Title, Artist & Status -->
+                                <Grid Grid.Column="1" ColumnDefinitions="*, 80" VerticalOptions="Center">
+                                    <!-- Title & Album -->
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding Title}" TextColor="White" FontFamily="MontserratBold" FontSize="13" LineBreakMode="TailTruncation"/>
+                                        <Label Text="{Binding Artist}" TextColor="{StaticResource TextMuted}" FontFamily="MontserratRegular" FontSize="10" TextTransform="Uppercase" LineBreakMode="TailTruncation" FontAttributes="Bold"/>
+                                    </VerticalStackLayout>
+
+                                    <!-- Status (Live) -->
+                                    <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                        <!-- Chấm xanh Neon -->
+                                        <BoxView Color="{StaticResource NeonGreen}" WidthRequest="6" HeightRequest="6" CornerRadius="3" VerticalOptions="Center">
+                                            <BoxView.Shadow>
+                                                <Shadow Brush="{StaticResource NeonGreen}" Radius="5" Opacity="0.8"/>
+                                            </BoxView.Shadow>
+                                        </BoxView>
+                                        <Label Text="LIVE" TextColor="{StaticResource NeonGreen}" FontSize="10" FontAttributes="Bold" CharacterSpacing="1" VerticalOptions="Center"/>
+                                    </HorizontalStackLayout>
+                                </Grid>
+
+                                <!-- Cột 3: Công cụ (Sửa / Xóa) -->
+                                <!-- Cột 3: Công cụ (Sửa / Xóa) -->
+                                <HorizontalStackLayout Grid.Column="2" Spacing="8" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,5,0">
+
+                                    <!-- Nút Sửa -->
+                                    <Grid WidthRequest="30" HeightRequest="30" BackgroundColor="Transparent">
+                                        <Path Data="{StaticResource IconEdit}" Fill="#4CAF50" Aspect="Uniform" HeightRequest="14" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AdminDashboardViewModel}}, Path=EditSongCommand}" CommandParameter="{Binding .}"/>
+                                        </Grid.GestureRecognizers>
+                                    </Grid>
+
+                                    <!-- Nút Xóa -->
+                                    <Grid WidthRequest="30" HeightRequest="30" BackgroundColor="Transparent">
+                                        <Path Data="{StaticResource IconDelete}" Fill="#F44336" Aspect="Uniform" HeightRequest="14" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AdminDashboardViewModel}}, Path=DeleteSongCommand}" CommandParameter="{Binding .}"/>
+                                        </Grid.GestureRecognizers>
+                                    </Grid>
+
+                                </HorizontalStackLayout>
+                            </Grid>
+
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+
+                    <!-- Footer đếm trang -->
+                    <CollectionView.Footer>
+                        <Grid ColumnDefinitions="*, Auto" Margin="0,20,0,30">
+                            <Label Text="END OF ORBIT" TextColor="{StaticResource TextMuted}" FontSize="9" FontAttributes="Bold" CharacterSpacing="2"/>
+                            <Label Grid.Column="1" Text="PREVIOUS ORBIT   NEXT ORBIT" TextColor="{StaticResource TextMuted}" FontSize="9" FontAttributes="Bold" CharacterSpacing="1.5"/>
+                        </Grid>
+                    </CollectionView.Footer>
+                </CollectionView>
+
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

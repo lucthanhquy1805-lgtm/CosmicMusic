@@ -44,6 +44,8 @@ namespace CosmicMusic.ViewModels
         [ObservableProperty] private bool _hasRecommendations = false;
         [ObservableProperty]
         private string _headerPhotoUrl;
+        [ObservableProperty]
+        private bool _isAdmin;
 
         [ObservableProperty] private bool _hasRecentlyPlayed;
 
@@ -73,8 +75,12 @@ namespace CosmicMusic.ViewModels
                 await LoadRecentlyPlayedAsync();
             });
         }
+        public async Task InitializeAsync()
+        {
+            LoadDataFromFirebase();
+            await Task.CompletedTask;
+        }
 
-       
         public void Receive(SongPlayedMessage message)
         {
             var song = message.PlayedSong;
@@ -154,12 +160,46 @@ namespace CosmicMusic.ViewModels
                 {
                     Playlist.Clear();
                     foreach (var song in taskSongs.Result) Playlist.Add(song);
+                    for (int i = RecentlyPlayed.Count - 1; i >= 0; i--)
+                    {
+                        var freshSong = Playlist.FirstOrDefault(s => s.Id == RecentlyPlayed[i].Id);
+                        if (freshSong != null)
+                        {
+                            RecentlyPlayed[i] = freshSong; 
+                        }
+                        else
+                        {
+                            RecentlyPlayed.RemoveAt(i); 
+                        }
+                    }
+                    HasRecentlyPlayed = RecentlyPlayed.Count > 0;
 
                     FeaturedAlbums.Clear();
                     foreach (var album in taskAlbums.Result) FeaturedAlbums.Add(album);
 
                     Artists.Clear();
-                    foreach (var artist in taskArtists.Result) Artists.Add(artist);
+                    TopArtists.Clear();
+                    foreach (var artist in taskArtists.Result)
+                    {
+                        
+                        bool hasSongs = Playlist.Any(s => s.ArtistId == artist.Id || s.Artist == artist.Name);
+
+                        if (hasSongs)
+                        {
+                            Artists.Add(artist);
+
+                            TopArtists.Add(new Album
+                            {
+                                Id = artist.Id,
+                                Title = artist.Name,
+                                Artist = "Nghệ sĩ",
+                                CoverImage = artist.Avatar,
+                                Description = "Artist"
+                            });
+                        }
+                    }
+
+                    
 
                     Genres.Clear();
                     foreach (var genre in taskGenres.Result) Genres.Add(genre);
@@ -183,18 +223,7 @@ namespace CosmicMusic.ViewModels
                     }
 
                    
-                    TopArtists.Clear();
-                    foreach (var artist in taskArtists.Result)
-                    {
-                        TopArtists.Add(new Album
-                        {
-                            Id = artist.Id,
-                            Title = artist.Name,
-                            Artist = "Nghệ sĩ",
-                            CoverImage = artist.Avatar,
-                            Description = "Artist"
-                        });
-                    }
+                   
                 });
             }
             catch (Exception ex)
@@ -232,7 +261,7 @@ namespace CosmicMusic.ViewModels
             if (!string.IsNullOrEmpty(savedFullName)) UserName = savedFullName;
             else if (!string.IsNullOrEmpty(email)) UserName = email;
             else UserName = "Khách";
-
+            IsAdmin = Preferences.Get("IsAdmin", false);
             CheckPremiumStatus();
         }
 
@@ -358,6 +387,7 @@ namespace CosmicMusic.ViewModels
         }
 
 
+
         [RelayCommand]
         public async Task NavigateToPlayer()
         {
@@ -391,8 +421,16 @@ namespace CosmicMusic.ViewModels
             try { _isNavigating = true; await Shell.Current.GoToAsync(nameof(SettingsPage)); }
             finally { await Task.Delay(500); _isNavigating = false; }
         }
+        [RelayCommand]
+        public async Task GoToAdminPage()
+        {
+            CloseUserMenu(); 
 
-       
+            
+            await Shell.Current.GoToAsync(nameof(AdminDashboardPage));
+        }
+
+
         [RelayCommand] public void TapUserAvatar() { IsUserMenuVisible = !IsUserMenuVisible; }
         [RelayCommand] public void CloseUserMenu() { IsUserMenuVisible = false; }
         [RelayCommand] public async Task AddAccount() { await Shell.Current.DisplayAlert("Thông báo", "Tính năng đang phát triển", "OK"); }

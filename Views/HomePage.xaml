@@ -5,8 +5,10 @@
              xmlns:viewmodels="clr-namespace:CosmicMusic.ViewModels"
              xmlns:models="clr-namespace:CosmicMusic.Models"
              xmlns:converters="clr-namespace:CosmicMusic.Converters" 
+             xmlns:helpers="clr-namespace:CosmicMusic.Helpers"
              x:Class="CosmicMusic.Views.HomePage"
-             x:DataType="viewmodels:HomeViewModel">
+             x:DataType="viewmodels:HomeViewModel"
+             x:Name="HomePageRoot">
     <ContentPage.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#2E004F" Offset="0.0" />
@@ -94,7 +96,9 @@
                                             <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=SelectSongCommand}" CommandParameter="{Binding .}"/>
                                         </Grid.GestureRecognizers>
 
-                                        <Border Grid.Row="0" StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="0" BackgroundColor="#332A38">
+                                        <Border Grid.Row="0" StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="0" BackgroundColor="#332A38" >
+                                            <!--helpers:AnimationHelper.IsBreathing="{Binding BindingContext.AudioPlayer.IsPlaying, Source={x:Reference HomePageRoot}}">-->
+                                                
                                             <Grid>
                                                 <Image Source="{Binding CoverImage}" Aspect="AspectFill" />
                                                 <Border IsVisible="{Binding IsPremium}" BackgroundColor="#FFD700" StrokeThickness="0" Padding="5,2" Margin="5" HorizontalOptions="End" VerticalOptions="Start" StrokeShape="RoundRectangle 4">
@@ -165,19 +169,36 @@
 
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:Album">
-                                    <Frame HeightRequest="230" WidthRequest="160" CornerRadius="16" Padding="0" IsClippedToBounds="True" BorderColor="#338E2DE2" BackgroundColor="#251035">
-                                        <Frame.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=OpenAlbumCommand}" CommandParameter="{Binding .}"/>
-                                        </Frame.GestureRecognizers>
 
-                                        <Grid RowDefinitions="160, *">
-                                            <Image Grid.Row="0" Source="{Binding CoverImage}" Aspect="AspectFill"/>
-                                            <VerticalStackLayout Grid.Row="1" Padding="10" VerticalOptions="Center">
-                                                <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="14" TextColor="White" LineBreakMode="TailTruncation" MaxLines="1"/>
-                                                <Label Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="12" TextColor="#AAA" LineBreakMode="TailTruncation"/>
-                                            </VerticalStackLayout>
-                                        </Grid>
-                                    </Frame>
+                                 
+                                    <Grid WidthRequest="160" HeightRequest="230" BackgroundColor="Transparent">
+
+                                        <Grid.GestureRecognizers>
+                                          
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:HomeViewModel}}, Path=OpenAlbumCommand}" CommandParameter="{Binding .}"/>
+                                        </Grid.GestureRecognizers>
+
+
+                                        <Frame CornerRadius="16" Padding="0" IsClippedToBounds="True" BorderColor="#338E2DE2" BackgroundColor="#251035"
+                                                   helpers:AnimationHelper.IsBreathing="{Binding BindingContext.AudioPlayer.IsPlaying, Source={x:Reference HomePageRoot}}"
+                                                   InputTransparent="True">             
+
+                                            <Frame.Shadow>
+                                                <Shadow Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="5" Opacity="0.8"/>
+                                            </Frame.Shadow>
+
+                                            <Grid RowDefinitions="160, *">
+                                                <Image Grid.Row="0" Source="{Binding CoverImage}" Aspect="AspectFill"/>
+                                                <VerticalStackLayout Grid.Row="1" Padding="10" VerticalOptions="Center">
+                                                    <Label Text="{Binding Title}" FontFamily="MontserratBold" FontSize="14" TextColor="White" LineBreakMode="TailTruncation" MaxLines="1"/>
+                                                    <Label Text="{Binding Artist}" FontFamily="MontserratRegular" FontSize="12" TextColor="#AAA" LineBreakMode="TailTruncation"/>
+                                                </VerticalStackLayout>
+                                            </Grid>
+
+                                        </Frame>
+
+                                    </Grid>
+
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
@@ -314,6 +335,15 @@
                             <Label Grid.Column="1" Text="Thêm tài khoản" TextColor="White" FontSize="16" FontFamily="MontserratRegular" VerticalOptions="Center"/>
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding AddAccountCommand}"/>
+                            </Grid.GestureRecognizers>
+                        </Grid>
+                        
+                        <Grid ColumnDefinitions="30, *" ColumnSpacing="15" BackgroundColor="Transparent" 
+                              IsVisible="{Binding IsAdmin}">
+                            <Path Grid.Column="0" Data="{StaticResource IconSettings}" Fill="#FFD700" Aspect="Uniform" HeightRequest="22"/>
+                            <Label Grid.Column="1" Text="Quản trị Hệ thống" TextColor="#FFD700" FontSize="16" FontFamily="MontserratBold" VerticalOptions="Center"/>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding GoToAdminPageCommand}"/>
                             </Grid.GestureRecognizers>
                         </Grid>
 
