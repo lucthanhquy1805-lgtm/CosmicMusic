@@ -8,6 +8,7 @@ using System.Text.Json;
 using YoutubeExplode;
 using YoutubeExplode.Common;
 using YoutubeExplode.Videos.Streams;
+using System.Globalization;
 
 namespace CosmicMusic.ViewModels
 {
@@ -75,8 +76,20 @@ namespace CosmicMusic.ViewModels
                     string formattedGenreId = "genre_" + rawGenre.ToLower().Replace(" ", "").Replace("-", "").Replace("/", "");
 
                     bool isAlreadyAdded = existingSongs.Any(x =>
-                        x.Title.Equals(title, StringComparison.OrdinalIgnoreCase) &&
-                        x.Artist.Equals(artist, StringComparison.OrdinalIgnoreCase));
+                    {
+                        if (string.IsNullOrWhiteSpace(x.Title) || string.IsNullOrWhiteSpace(x.Artist)) return false;
+
+                        // 1. Quét Tên bài: IgnoreNonSpace giúp ép "Sơn Tùng" thành "Son Tung" để so sánh
+                        bool titleMatch = string.Compare(x.Title.Trim(), title.Trim(), CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) == 0
+                                          || title.ToLower().Contains(x.Title.ToLower()); // Hoặc tên này bao bọc tên kia (VD: Mashup)
+
+                        // 2. Quét Ca sĩ tương tự
+                        bool artistMatch = string.Compare(x.Artist.Trim(), artist.Trim(), CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) == 0
+                                           || artist.ToLower().Contains(x.Artist.ToLower());
+
+                        // Phải khớp cả Tên bài lẫn Ca sĩ (Tránh việc Adele hát bài Hello lại bị trùng với Lionel Richie)
+                        return titleMatch && artistMatch;
+                    });
 
                     tempSongs.Add(new Song
                     {
