@@ -1,8 +1,11 @@
 ﻿using CommunityToolkit.Maui;
-using Microsoft.Extensions.Logging;
 using CosmicMusic.Services;
 using CosmicMusic.ViewModels;
 using CosmicMusic.Views;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.Reflection;
+
 
 
 namespace CosmicMusic;
@@ -25,6 +28,22 @@ public static class MauiProgram
                 fonts.AddFont("Montserrat-Bold.ttf", "MontserratBold");
                 fonts.AddFont("Montserrat-Regular.ttf", "MontserratRegular");
             });
+        var assembly = Assembly.GetExecutingAssembly();
+        // Tên file nhúng phải có cấu trúc: TênProject.TênFile
+        using var stream = assembly.GetManifestResourceStream("CosmicMusic.appsettings.json");
+
+        if (stream != null)
+        {
+            var config = new ConfigurationBuilder()
+                        .AddJsonStream(stream)
+                        .Build();
+            builder.Configuration.AddConfiguration(config);
+        }
+        // ======================================================
+
+        // Các builder.Services... của Sếp giữ nguyên bên dưới
+
+
 
         // =================================================================
         // 1. ĐĂNG KÝ SERVICES (Singleton: Sống suốt vòng đời App)

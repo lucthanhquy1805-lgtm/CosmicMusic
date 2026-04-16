@@ -37,12 +37,14 @@ namespace CosmicMusic.ViewModels
         {
             _firestoreService = firestoreService;
             _s3Service = s3Service;
-
             _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "CosmicMusicApp/1.0");
+            _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
         }
 
         
+      
         [RelayCommand]
         public async Task SearchApi()
         {
@@ -55,39 +57,62 @@ namespace CosmicMusic.ViewModels
 
             try
             {
-                string url = $"https://itunes.apple.com/search?term={Uri.EscapeDataString(SearchText)}&entity=song&limit=15";
-                var response = await _httpClient.GetStringAsync(url);
+                // ==========================================
+                // BẪY SỐ 1: KIỂM TRA MÁY CHỦ FIREBASE
+                // ==========================================
+                List<Song> existingSongs = new();
+                try
+                {
+                    existingSongs = await _firestoreService.GetAllSongsAsync();
+                }
+                catch (Exception fbEx)
+                {
+                    // Nếu lỗi ở đây, khả năng cao Project ID Firestore bị sai hoặc collection bị xóa
+                    throw new Exception($"[LỖI FIREBASE] Kho nhạc gốc có vấn đề. Chi tiết: {fbEx.Message}");
+                }
+
+                // ==========================================
+                // BẪY SỐ 2: KIỂM TRA MÁY CHỦ APPLE ITUNES
+                // ==========================================
+                string response = "";
+                try
+                {
+                    // 👇 SỬA LẠI ĐÚNG 2 DÒNG NÀY 👇
+
+                    // 1. Xóa khoảng trắng thừa 2 đầu và thay thế toàn bộ dấu cách ở giữa thành dấu "+"
+                    string safeSearchTerm = SearchText.Trim().Replace(" ", "+");
+
+                    // 2. Đưa safeSearchTerm vào URL (KHÔNG cần dùng Uri.EscapeDataString nữa vì Apple chỉ nhận dấu +)
+                    string url = $"https://itunes.apple.com/search?term={safeSearchTerm}&entity=song&limit=15&country=VN";
+
+                    response = await _httpClient.GetStringAsync(url);
+                }
+                catch (Exception appleEx)
+                {
+                    throw new Exception($"[LỖI APPLE API] Không kết nối được iTunes. Chi tiết: {appleEx.Message}");
+                }
+                // ==========================================
+                // XỬ LÝ DỮ LIỆU BÌNH THƯỜNG
+                // ==========================================
                 using var doc = JsonDocument.Parse(response);
                 var results = doc.RootElement.GetProperty("results").EnumerateArray();
-
-            
-                var existingSongs = await _firestoreService.GetAllSongsAsync();
-
                 var tempSongs = new List<Song>();
+
                 foreach (var item in results)
                 {
                     string title = item.TryGetProperty("trackName", out var t) ? t.GetString() : "Unknown";
                     string artist = item.TryGetProperty("artistName", out var a) ? a.GetString() : "Unknown";
-
-                   
                     string rawGenre = item.TryGetProperty("primaryGenreName", out var g) ? g.GetString() : "Pop";
-
-                   
                     string formattedGenreId = "genre_" + rawGenre.ToLower().Replace(" ", "").Replace("-", "").Replace("/", "");
 
+                    // Radar quét bài hát cũ
                     bool isAlreadyAdded = existingSongs.Any(x =>
                     {
                         if (string.IsNullOrWhiteSpace(x.Title) || string.IsNullOrWhiteSpace(x.Artist)) return false;
-
-                        // 1. Quét Tên bài: IgnoreNonSpace giúp ép "Sơn Tùng" thành "Son Tung" để so sánh
                         bool titleMatch = string.Compare(x.Title.Trim(), title.Trim(), CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) == 0
-                                          || title.ToLower().Contains(x.Title.ToLower()); // Hoặc tên này bao bọc tên kia (VD: Mashup)
-
-                        // 2. Quét Ca sĩ tương tự
+                                          || title.ToLower().Contains(x.Title.ToLower());
                         bool artistMatch = string.Compare(x.Artist.Trim(), artist.Trim(), CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) == 0
                                            || artist.ToLower().Contains(x.Artist.ToLower());
-
-                        // Phải khớp cả Tên bài lẫn Ca sĩ (Tránh việc Adele hát bài Hello lại bị trùng với Lionel Richie)
                         return titleMatch && artistMatch;
                     });
 
@@ -95,7 +120,7 @@ namespace CosmicMusic.ViewModels
                     {
                         Title = title,
                         Artist = artist,
-                        GenreId = rawGenre, 
+                        GenreId = rawGenre,
                         CoverImage = item.TryGetProperty("artworkUrl100", out var c) ? c.GetString()?.Replace("100x100bb", "600x600bb") : "https://via.placeholder.com/600",
                         IsPremium = false,
                         IsAdded = isAlreadyAdded
@@ -110,14 +135,14 @@ namespace CosmicMusic.ViewModels
             }
             catch (Exception ex)
             {
+                // Bảng báo lỗi bây giờ sẽ chỉ đích danh thủ phạm
                 MainThread.BeginInvokeOnMainThread(async () => {
                     IsLoading = false;
-                    await Shell.Current.DisplayAlert("Lỗi", "Lỗi mạng: " + ex.Message, "OK");
+                    await Shell.Current.DisplayAlert("Phát hiện lỗi", ex.Message, "OK");
                 });
             }
         }
 
-      
         [RelayCommand]
         public async Task SelectAndUploadSong(Song selectedSong)
         {

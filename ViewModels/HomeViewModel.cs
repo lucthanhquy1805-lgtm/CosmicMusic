@@ -238,39 +238,53 @@ namespace CosmicMusic.ViewModels
             string uid = Preferences.Get("UserId", "");
             if (string.IsNullOrEmpty(uid)) return;
 
-            // 1. Lấy danh sách Nghe gần đây từ Firebase (Lúc này có thể chứa bài hát đã bị Admin xóa)
+            
             var recentSongs = await _firestoreService.GetRecentlyPlayedAsync(uid);
 
-            // 2. Lấy danh sách Kho nhạc gốc (Source of Truth) để làm màng lọc
+           
             var allValidSongs = await _firestoreService.GetAllSongsAsync();
 
-            // 3. 🧹 MÁY HÚT BỤI CHẠY NGẦM (Lọc rác ngay trong Background Thread)
-            // Chỉ giữ lại những bài hát "Nghe gần đây" mà ID của nó VẪN CÒN tồn tại trong "Kho nhạc gốc"
-            var cleanRecentSongs = recentSongs
-                .Where(recent => allValidSongs.Any(valid => valid.Id == recent.Id))
-                .Take(10)
-                .ToList();
+            
+            var cleanRecentSongs = new List<Song>();
 
-            // 4. Mở cửa cho dàn diễn viên (đã sạch sẽ 100%) bước ra Sân khấu (Giao diện UI)
+            foreach (var recent in recentSongs)
+            {
+              
+                var validSong = allValidSongs.FirstOrDefault(v => v.Id == recent.Id);
+
+              
+                if (validSong != null)
+                {
+                   
+                    recent.Title = validSong.Title;
+                    recent.Artist = validSong.Artist;
+                    recent.CoverImage = validSong.CoverImage;
+
+                    cleanRecentSongs.Add(recent);
+                }
+            }
+
+           
+            var finalList = cleanRecentSongs.Take(10).ToList();
+
+           
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 RecentlyPlayed.Clear();
-                foreach (var song in cleanRecentSongs)
+                foreach (var song in finalList)
                 {
                     RecentlyPlayed.Add(song);
                 }
                 HasRecentlyPlayed = RecentlyPlayed.Count > 0;
             });
 
-            // 🌟 TÍNH NĂNG ẨN (Optional): Dọn rác luôn trên Firebase để lần sau tải nhanh hơn
+         
             Task.Run(() =>
             {
                 var deadSongs = recentSongs.Where(recent => !allValidSongs.Any(valid => valid.Id == recent.Id)).ToList();
-                // Nếu Sếp có viết hàm xóa khỏi RecentlyPlayed ở FirestoreService thì gọi ở đây:
-                // foreach (var dead in deadSongs) { _firestoreService.RemoveFromRecentlyPlayedAsync(uid, dead.Id); }
+               
             });
         }
-
 
         public void LoadUserAvatar()
         {

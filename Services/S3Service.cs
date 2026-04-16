@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace CosmicMusic.Services
 {
@@ -13,6 +14,13 @@ namespace CosmicMusic.Services
         private readonly string _bucketName = "cosmic-music-store-admin";
         private readonly string _accessKey = "";
         private readonly string _secretKey = "";
+        public S3Service(IConfiguration config)
+        {
+            // Lấy dữ liệu từ file appsettings.json
+            _bucketName = config["AWS:BucketName"];
+            _accessKey = config["AWS:AccessKey"];
+            _secretKey = config["AWS:SecretKey"];
+        }
 
         private readonly Amazon.RegionEndpoint _region = Amazon.RegionEndpoint.APSoutheast1;
 
