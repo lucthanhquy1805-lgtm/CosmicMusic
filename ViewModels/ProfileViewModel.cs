@@ -1,4 +1,5 @@
 ﻿
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -189,7 +190,15 @@ namespace CosmicMusic.ViewModels
         public async Task OpenPlaylist(CosmicMusic.Models.Playlist selectedPlaylist)
         {
             if (selectedPlaylist == null) return;
-            await Shell.Current.DisplayAlert("Mở Playlist", $"Bạn vừa chọn Playlist: {selectedPlaylist.Name}", "OK");
+            var navigationParameter = new Dictionary<string, object>
+            {
+                { "Id",          selectedPlaylist.Id },
+                { "Name",        selectedPlaylist.Name ?? "Playlist" },
+                { "Image",       selectedPlaylist.CoverImage ?? "" },
+                { "Description", selectedPlaylist.SongCount.ToString() }
+            };
+            await Shell.Current.GoToAsync(nameof(AlbumDetailPage), navigationParameter);
+            //ait Shell.Current.DisplayAlert("Mở Playlist", $"Bạn vừa chọn Playlist: {selectedPlaylist.Name}", "OK");
         }
     }
 }

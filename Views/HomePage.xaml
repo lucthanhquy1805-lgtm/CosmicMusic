@@ -310,14 +310,21 @@
             <Grid RowDefinitions="Auto, *, Auto" Padding="25,40,20,30">
                 <Grid Grid.Row="0" ColumnDefinitions="60, *" ColumnSpacing="15" Margin="0,0,0,30">
 
-                    <Border Grid.Column="0" StrokeShape="RoundRectangle 30" StrokeThickness="2" Stroke="#FFD700" BackgroundColor="{Binding AvatarBorderColor}" HeightRequest="60" WidthRequest="60">
+                    <Border Grid.Column="0" StrokeShape="RoundRectangle 30" StrokeThickness="2" Stroke="#FFD700" BackgroundColor="{Binding AvatarBorderColor}" HeightRequest="60" WidthRequest="60"
+                            helpers:AnimationHelper.IsBreathing="True">
+                        <Border.Shadow>
+                            <Shadow Brush="{StaticResource CosmicPink}" Offset="0,0" Radius="5" Opacity="0.8"/>
+                        </Border.Shadow>
                         <Grid>
                             <Label Text="{Binding UserAvatarText}" TextColor="White" FontSize="26" FontFamily="MontserratBold" HorizontalOptions="Center" VerticalOptions="Center"
                                    IsVisible="{Binding HeaderPhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=False}"/>
                             <Image Source="{Binding HeaderPhotoUrl}" Aspect="AspectFill"
                                    IsVisible="{Binding HeaderPhotoUrl, Converter={StaticResource StringToBoolConverter}, ConverterParameter=True}"/>
                         </Grid>
+
+                        
                     </Border>
+                    
 
                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
                         <Label Text="{Binding UserName}" TextColor="White" FontSize="20" FontFamily="MontserratBold"/>
