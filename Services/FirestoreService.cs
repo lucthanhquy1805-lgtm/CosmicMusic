@@ -1601,6 +1601,27 @@ namespace CosmicMusic.Services
                 System.Diagnostics.Debug.WriteLine($"❌ Lỗi Cỗ máy gom Album: {ex.Message}");
             }
         }
+        public async Task RenamePlaylistAsync(string playlistId, string newTitle)
+        {
+            if (string.IsNullOrEmpty(playlistId) || string.IsNullOrEmpty(newTitle)) return;
+            try
+            {
+                string url = $"{_baseUrl}/playlists/{playlistId}?updateMask.fieldPaths=name";
+                var payload = new
+                {
+                    fields = new
+                    {
+                        name = new { stringValue = newTitle }
+                    }
+                };
+                var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                await _httpClient.PatchAsync(url, content);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi đổi tên Playlist: {ex.Message}");
+            }
+        }
         // Bổ sung hàm cập nhật Avatar vào Firestore bằng REST API
         public async Task<bool> UpdateUserAvatarAsync(string uid, string avatarUrl)
         {
@@ -1631,6 +1652,7 @@ namespace CosmicMusic.Services
             }
         }
     }
+    
 
 
     public class UserFirestoreInfo

@@ -114,7 +114,50 @@ namespace CosmicMusic.ViewModels
                 bool confirm = await Shell.Current.DisplayAlert("Xác nhận", $"Bạn có chắc muốn xóa '{playlist.Name}' không?", "Xóa", "Hủy");
                 if (confirm) await DeletePlaylist(playlist);
             }
+            else if (action == "Sửa tên")
+            {
+               await RenamePlaylist(playlist);
+            }
         }
+        private async Task RenamePlaylist(Playlist playlist)
+        {
+            string newName = await Shell.Current.DisplayPromptAsync(
+                title: "Sửa tên Playlist",
+                message: "Nhập tên mới:",
+                accept: "Lưu",
+                cancel: "Hủy",
+                placeholder: playlist.Name,
+                initialValue: playlist.Name,
+                maxLength: 50,
+                keyboard: Keyboard.Default);
+
+            if (string.IsNullOrWhiteSpace(newName)) return;
+            if (newName.Trim() == playlist.Name.Trim()) return;
+
+            IsBusy = true;
+            try
+            {
+                await _firestoreService.RenamePlaylistAsync(playlist.Id, newName.Trim());
+
+                // Cập nhật UI ngay lập tức không cần reload
+                int idx = UserPlaylists.IndexOf(playlist);
+                if (idx >= 0)
+                {
+                    UserPlaylists.RemoveAt(idx);
+                    playlist.Name = newName.Trim();
+                    UserPlaylists.Insert(idx, playlist);
+                }
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Lỗi", ex.Message, "OK");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
 
         private async Task DeletePlaylist(Playlist playlist)
         {
