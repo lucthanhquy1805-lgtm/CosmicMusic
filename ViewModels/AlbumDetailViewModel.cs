@@ -21,14 +21,14 @@ namespace CosmicMusic.ViewModels
      
         [ObservableProperty] private AudioViewModel _audioPlayer;
         [ObservableProperty] private bool _isBusy;
+       
 
-      
         [ObservableProperty] private string _coverImage;
         [ObservableProperty] private string _mainTitle;
         [ObservableProperty] private string _subTitle;
         [ObservableProperty] private bool _isAlbumType;
+        [ObservableProperty] private bool _canEdit = false;
 
-      
         private string _currentId;    
         private string _currentType;   
         private Album _receivedAlbum;  
@@ -54,6 +54,7 @@ namespace CosmicMusic.ViewModels
                 CoverImage = "https://misc.scdn.co/liked-songs/liked-songs-300.png";
                 SubTitle = "Danh sách yêu thích của bạn";
                 IsAlbumType = false;
+
                 await LoadFavoriteSongs();
             }
            
@@ -95,6 +96,48 @@ namespace CosmicMusic.ViewModels
                 IsAlbumType = false;
                 await LoadSongsFromPlaylist();
             }
+            _canEdit = Preferences.Get("IsAdmin", false) &&
+             (_currentType == "Album" || _currentType == "Artist");
+            OnPropertyChanged(nameof(CanEdit));
+        }
+     
+        [RelayCommand]
+        public async Task EditAlbum()
+        {
+            if (_receivedAlbum == null) return;
+
+            bool isArtist = _currentType == "Artist"; // ← Key point
+
+            string newTitle = await Shell.Current.DisplayPromptAsync(
+                title: isArtist ? "Chỉnh sửa Nghệ sĩ" : "Chỉnh sửa Album",
+                message: isArtist ? "Nhập tên mới cho nghệ sĩ:" : "Nhập tên mới cho album:",
+                accept: "Lưu",
+                cancel: "Hủy",
+                initialValue: MainTitle,
+                maxLength: 80,
+                keyboard: Keyboard.Default);
+
+            if (string.IsNullOrWhiteSpace(newTitle)) return;
+            if (newTitle.Trim() == MainTitle) return;
+
+            IsBusy = true;
+            try
+            {
+                bool success = isArtist
+                    ? await _firestoreService.UpdateArtistNameAsync(_receivedAlbum.Id, newTitle.Trim())
+                    : await _firestoreService.UpdateAlbumTitleAsync(_receivedAlbum.Id, newTitle.Trim());
+
+                if (success)
+                {
+                    MainTitle = newTitle.Trim();
+                    _receivedAlbum.Title = newTitle.Trim();
+                    await Shell.Current.DisplayAlert("✅ Thành công",
+                        isArtist ? "Đã cập nhật tên nghệ sĩ!" : "Đã cập nhật tên album!", "OK");
+                }
+                else
+                    await Shell.Current.DisplayAlert("Lỗi", "Không thể cập nhật. Thử lại!", "OK");
+            }
+            finally { IsBusy = false; }
         }
 
         

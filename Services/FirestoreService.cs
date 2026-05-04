@@ -67,6 +67,50 @@ namespace CosmicMusic.Services
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi đọc User: {ex.Message}"); }
             return null;
         }
+        public async Task<bool> UpdateArtistNameAsync(string artistId, string newName)
+        {
+            if (string.IsNullOrEmpty(artistId) || string.IsNullOrEmpty(newName))
+                return false;
+            try
+            {
+                string url = $"{_baseUrl}/artists/{artistId}?updateMask.fieldPaths=name";
+                var payload = new
+                {
+                    fields = new { name = new { stringValue = newName.Trim() } }
+                };
+                var content = new StringContent(
+                    JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PatchAsync(url, content);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi cập nhật Artist: {ex.Message}");
+                return false;
+            }
+        }
+        public async Task<bool> UpdateAlbumTitleAsync(string albumId, string newTitle)
+        {
+            if (string.IsNullOrEmpty(albumId) || string.IsNullOrEmpty(newTitle))
+                return false;
+            try
+            {
+                string url = $"{_baseUrl}/albums/{albumId}?updateMask.fieldPaths=title";
+                var payload = new
+                {
+                    fields = new { title = new { stringValue = newTitle.Trim() } }
+                };
+                var content = new StringContent(
+                    JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PatchAsync(url, content);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi cập nhật Album: {ex.Message}");
+                return false;
+            }
+        }
 
         // ==========================================================
         // 2. CÁC HÀM LẤY DỮ LIỆU NỀN TẢNG (10 COLLECTIONS) - MỚI
@@ -612,7 +656,15 @@ namespace CosmicMusic.Services
             try { await _httpClient.DeleteAsync(url); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi xóa Playlist: {ex.Message}"); }
         }
+        public async Task DeleteAlbum(string albumId)
+        {
+            if (string.IsNullOrEmpty(albumId)) return;
 
+            // Xóa ở Root collection
+            string url = $"{_baseUrl}/albums/{albumId}";
+            try { await _httpClient.DeleteAsync(url); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi xóa Album: {ex.Message}"); }
+        }
         // Đổi tên Playlist — chỉ cập nhật đúng trường "name", không đụng các trường khác
         public async Task<bool> RenamePlaylistAsync(string playlistId, string newName)
         {
@@ -646,7 +698,7 @@ namespace CosmicMusic.Services
                 return false;
             }
         }
-
+     
         // 👇 ĐÃ SỬA: Dùng Query để tìm trong Root Collection 'playlists'
         public async Task<List<Playlist>> GetUserPlaylists(string uid)
         {

@@ -88,6 +88,7 @@
                                 BorderColor="White" BorderWidth="1"
                                 CornerRadius="25" FontAttributes="Bold" HeightRequest="54"/>
                     </Grid>
+                  
                 </VerticalStackLayout>
             </CollectionView.Header>
 
