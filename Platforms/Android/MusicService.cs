@@ -3,6 +3,7 @@ using Android.Content;
 using Android.OS;
 using Android.Support.V4.Media;
 using Android.Support.V4.Media.Session;
+using Android.Graphics;
 using AndroidX.Core.App;
 using CommunityToolkit.Mvvm.Messaging;
 
@@ -17,6 +18,7 @@ namespace CosmicMusic.Platforms.Android
 
         public string CurrentTitle = "Cosmic Music";
         public string CurrentArtist = "Unknown Artist";
+        public string CurrentCoverUrl = "";
         public bool IsPlaying = false;
         public long Duration = 0;
         public long Position = 0;
@@ -42,11 +44,13 @@ namespace CosmicMusic.Platforms.Android
             {
                 CurrentTitle = intent.GetStringExtra("title") ?? CurrentTitle;
                 CurrentArtist = intent.GetStringExtra("artist") ?? CurrentArtist;
+                CurrentCoverUrl = intent.GetStringExtra("coverImage") ?? CurrentCoverUrl;
                 IsPlaying = intent.GetBooleanExtra("isPlaying", true);
                 Duration = intent.GetLongExtra("duration", 0);
                 Position = intent.GetLongExtra("position", 0);
 
-                UpdateNotificationAndSession();
+                // Tải ảnh bìa rồi cập nhật notification
+                _ = UpdateNotificationWithCoverAsync();
             }
 
             return StartCommandResult.Sticky;
@@ -56,6 +60,7 @@ namespace CosmicMusic.Platforms.Android
         {
             if (action == "PLAY_PAUSE") IsPlaying = !IsPlaying;
             WeakReferenceMessenger.Default.Send(new ViewModels.MediaControlMessage(action));
+            // Giữ nguyên ảnh hiện tại khi điều khiển Play/Pause/Next
             UpdateNotificationAndSession();
         }
 
@@ -68,7 +73,29 @@ namespace CosmicMusic.Platforms.Android
             UpdateNotificationAndSession();
         }
 
-        public void UpdateNotificationAndSession()
+        // Tải ảnh bìa bất đồng bộ từ URL rồi cập nhật notification
+        private async Task UpdateNotificationWithCoverAsync()
+        {
+            Bitmap coverBitmap = null;
+            try
+            {
+                if (!string.IsNullOrEmpty(CurrentCoverUrl))
+                {
+                    using var httpClient = new System.Net.Http.HttpClient();
+                    httpClient.Timeout = TimeSpan.FromSeconds(5);
+                    var bytes = await httpClient.GetByteArrayAsync(CurrentCoverUrl);
+                    coverBitmap = await BitmapFactory.DecodeByteArrayAsync(bytes, 0, bytes.Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi tải ảnh bìa notification: {ex.Message}");
+            }
+
+            UpdateNotificationAndSession(coverBitmap);
+        }
+
+        public void UpdateNotificationAndSession(Bitmap coverBitmap = null)
         {
             var stateBuilder = new PlaybackStateCompat.Builder()
                 .SetActions(PlaybackStateCompat.ActionPlay | PlaybackStateCompat.ActionPause | PlaybackStateCompat.ActionSkipToNext | PlaybackStateCompat.ActionSkipToPrevious | PlaybackStateCompat.ActionSeekTo)
@@ -97,10 +124,13 @@ namespace CosmicMusic.Platforms.Android
                 .SetContentTitle(CurrentTitle)
                 .SetContentText(CurrentArtist)
 
-                // 👇 ĐÃ SỬA: Dùng Icon App chuẩn của MAUI thay vì Icon Play gây hiểu nhầm
+                // ✅ Hiện ảnh bìa bài hát ở vòng tròn lớn bên trái notification
+                .SetLargeIcon(coverBitmap)
+
+                // Icon nhỏ góc phải (bắt buộc phải có) — dùng icon app
                 .SetSmallIcon(Resource.Mipmap.appicon)
 
-                // 👇 ĐÃ THÊM: Gắn vé thông hành mở App
+                // Gắn vé thông hành mở App
                 .SetContentIntent(pendingOpenApp)
 
                 .SetOngoing(IsPlaying)

@@ -296,6 +296,77 @@ namespace CosmicMusic.Services
             }
             return songs;
         }
+
+        // ============================================================
+        // KIỂM TRA BÀI HÁT ĐÃ TỒN TẠI (DÙNG CHO ADDSONG — CHỐNG RÁC DỮ LIỆU)
+        // ============================================================
+        // Khác với GetAllSongsAsync: hàm này tìm theo Title + Artist
+        // bất kể bài có AudioUrl hay không → phát hiện cả bài nhập tay thiếu URL
+        public async Task<bool> IsSongExistsAsync(string title, string artist)
+        {
+            if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(artist)) return false;
+
+            try
+            {
+                string runQueryUrl = $"{_baseUrl}:runQuery";
+
+                // Query theo Title chính xác trước
+                var query = new
+                {
+                    structuredQuery = new
+                    {
+                        from = new[] { new { collectionId = "songs" } },
+                        where = new
+                        {
+                            compositeFilter = new
+                            {
+                                op = "AND",
+                                filters = new[]
+                                {
+                                    new { fieldFilter = new {
+                                        field = new { fieldPath = "title" },
+                                        op = "EQUAL",
+                                        value = new { stringValue = title }
+                                    }},
+                                    new { fieldFilter = new {
+                                        field = new { fieldPath = "artist" },
+                                        op = "EQUAL",
+                                        value = new { stringValue = artist }
+                                    }}
+                                }
+                            }
+                        },
+                        limit = 1 // Chỉ cần biết có hay không, lấy 1 là đủ
+                    }
+                };
+
+                var content = new StringContent(
+                    JsonSerializer.Serialize(query), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(runQueryUrl, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            // Nếu có ít nhất 1 document trả về → bài đã tồn tại
+                            if (item.TryGetProperty("document", out _))
+                                return true;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi kiểm tra bài hát: {ex.Message}");
+            }
+            return false;
+        }
+
         public async Task<bool> DeleteSongAsync(string songId)
         {
             if (string.IsNullOrEmpty(songId)) return false;
@@ -540,6 +611,40 @@ namespace CosmicMusic.Services
             string url = $"{_baseUrl}/playlists/{playlistId}";
             try { await _httpClient.DeleteAsync(url); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi xóa Playlist: {ex.Message}"); }
+        }
+
+        // Đổi tên Playlist — chỉ cập nhật đúng trường "name", không đụng các trường khác
+        public async Task<bool> RenamePlaylistAsync(string playlistId, string newName)
+        {
+            if (string.IsNullOrEmpty(playlistId) || string.IsNullOrEmpty(newName))
+                return false;
+
+            try
+            {
+                // updateMask chỉ cho phép ghi đè đúng trường "name", không xóa các trường khác
+                string url = $"{_baseUrl}/playlists/{playlistId}?updateMask.fieldPaths=name";
+
+                var payload = new
+                {
+                    fields = new
+                    {
+                        name = new { stringValue = newName.Trim() }
+                    }
+                };
+
+                var content = new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(payload),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+
+                var response = await _httpClient.PatchAsync(url, content);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi đổi tên Playlist: {ex.Message}");
+                return false;
+            }
         }
 
         // 👇 ĐÃ SỬA: Dùng Query để tìm trong Root Collection 'playlists'
@@ -969,6 +1074,10 @@ namespace CosmicMusic.Services
                                     if (fields.TryGetProperty("audioUrl", out var u)) s.AudioUrl = u.GetProperty("stringValue").GetString();
                                     if (fields.TryGetProperty("coverImage", out var c)) s.CoverImage = c.GetProperty("stringValue").GetString();
 
+                                    // ✅ Parse AlbumId — cần cho CheckAndCreateAutoAlbumAsync
+                                    // Nếu không parse → AlbumId luôn null → mọi bài đều bị coi là mồ côi
+                                    if (fields.TryGetProperty("albumId", out var albId)) s.AlbumId = albId.GetProperty("stringValue").GetString();
+
                                     if (fields.TryGetProperty("duration", out var dur) && dur.TryGetProperty("integerValue", out var val))
                                         s.Duration = val.ValueKind == JsonValueKind.String ? double.Parse(val.GetString()) : val.GetDouble();
 
@@ -992,6 +1101,8 @@ namespace CosmicMusic.Services
 
                 // Xóa các bài hát bị trùng lặp (Phòng khi bài hát cũ có cả 2 trường)
                 songs = songs.GroupBy(s => s.Id).Select(g => g.First()).ToList();
+
+               
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Lỗi lấy nhạc theo Ca sĩ: {ex.Message}"); }
 
@@ -1022,7 +1133,7 @@ namespace CosmicMusic.Services
         // ==========================================================
         // LẤY DANH SÁCH BÀI HÁT THEO THỂ LOẠI (DÙNG CHO TRANG GENRE DETAIL)
         // ==========================================================
-        
+
         public async Task<List<Song>> GetSongsByGenreAsync(string targetGenreId)
         {
             var resultList = new List<Song>();
@@ -1228,7 +1339,7 @@ namespace CosmicMusic.Services
 
             return list;
         }
-        
+
         // ==========================================================
         // CỖ MÁY: TÁCH CA SĨ VÀ NHẬN DIỆN THÔNG MINH (FUZZY MATCHING)
         // ==========================================================
@@ -1256,7 +1367,17 @@ namespace CosmicMusic.Services
                 var matchedArtist = existingArtists.FirstOrDefault(a =>
                 {
                     string normalizedDbName = RemoveDiacritics(a.Name.ToLower()).Trim();
-                    return normalizedDbName.Contains(normalizedSearchName) || normalizedSearchName.Contains(normalizedDbName);
+
+                    // Exact match: ưu tiên trước
+                    bool exactMatch = normalizedDbName == normalizedSearchName;
+
+                    // Fuzzy match: chỉ áp dụng khi tên đủ dài (> 3 ký tự)
+                    // Tránh "k" match nhầm "k-icm", hay "an" match nhầm "karik"
+                    bool fuzzyMatch = normalizedSearchName.Length > 3 &&
+                                      (normalizedDbName.Contains(normalizedSearchName) ||
+                                       normalizedSearchName.Contains(normalizedDbName));
+
+                    return exactMatch || fuzzyMatch;
                 });
 
                 if (matchedArtist != null)
@@ -1287,7 +1408,7 @@ namespace CosmicMusic.Services
 
             return resultIds; // Trả về 1 mảng gồm nhiều ID ca sĩ
         }
-     
+
         // ==========================================================
         // THÊM BÀI HÁT MỚI VÀO KHO NHẠC CHUNG (Đã tối ưu Đa Ca Sĩ & Thể Loại)
         // ==========================================================
@@ -1325,6 +1446,7 @@ namespace CosmicMusic.Services
                         artistIds = new { arrayValue = artistIdsArray },
 
                         album = new { stringValue = song.Album ?? "Unknown Album" },
+                        albumId = new { stringValue = song.AlbumId ?? "" }, // Lưu albumId để trang Artist hiển thị đúng
                         coverImage = new { stringValue = song.CoverImage ?? "cover_chill.jpg" },
                         audioUrl = new { stringValue = song.AudioUrl ?? "" },
                         lyrics = new { stringValue = song.Lyrics ?? "" },
@@ -1346,7 +1468,12 @@ namespace CosmicMusic.Services
                 if (response.IsSuccessStatusCode)
                 {
                     System.Diagnostics.Debug.WriteLine($"✅ Đã lưu bài hát lên Firestore: {song.Title}");
-                    _ = Task.Run(() => CheckAndCreateAutoAlbumAsync(song.ArtistId, song.Artist, song.CoverImage));
+
+                    // ✅ FIX: Chạy CheckAndCreateAutoAlbum sau khi lưu xong
+                    // Dùng Task.Run để không block UI, delay bên trong hàm sẽ chờ Firestore index
+                    _ = Task.Run(async () => await CheckAndCreateAutoAlbumAsync(
+                        song.ArtistId, song.Artist, song.CoverImage));
+
                     return true;
                 }
                 else
@@ -1362,7 +1489,7 @@ namespace CosmicMusic.Services
                 return false;
             }
         }
-      
+
         // ==========================================================
         // CỖ MÁY: KIỂM TRA, DỊCH THUẬT VÀ TẠO THỂ LOẠI MỚI (GENRES)
         // ==========================================================
@@ -1440,7 +1567,7 @@ namespace CosmicMusic.Services
 
             return finalGenreId;
         }
-       
+
         // ==========================================================
         // CỖ MÁY ĐỀ XUẤT NHẠC THÔNG MINH (Đã tối ưu cho kho nhạc nhỏ)
         // ==========================================================
@@ -1528,57 +1655,82 @@ namespace CosmicMusic.Services
         // ==========================================================
         public async Task CheckAndCreateAutoAlbumAsync(string artistId, string artistName, string fallbackCover)
         {
-            // Bỏ qua nếu không có ID (dù hệ thống của bạn rất hiếm khi để lọt ID null)
             if (string.IsNullOrEmpty(artistId)) return;
 
             try
             {
-                // 1. Lấy toàn bộ bài hát của ca sĩ này (Tận dụng hàm xịn của bạn, tìm cả kiểu cũ lẫn kiểu mảng mới)
+                // ✅ FIX 1: Chờ 3 giây để Firestore kịp index bài mới trước khi query
+                // Nếu query ngay sau khi PATCH → bài vừa thêm chưa được index → không thấy
+                await Task.Delay(3000);
+
+                string albumId = $"album_auto_{artistId}";
+                string albumTitle = $"Tuyển Tập {artistName}";
+                string getAlbumUrl = $"{_baseUrl}/albums/{albumId}";
+
+                // ✅ FIX 2: Kiểm tra album TỒN TẠI trước — bất kể có đủ 5 bài hay không
+                // Nếu album đã có → gán thẳng albumId cho bài mồ côi, không cần tạo lại
+                var checkRes = await _httpClient.GetAsync(getAlbumUrl);
+                bool albumExists = checkRes.IsSuccessStatusCode;
+
+                // 1. Lấy toàn bộ bài hát của ca sĩ
                 var allArtistSongs = await GetSongsByArtistIdAsync(artistId);
 
-                // 2. Lọc ra những bài hát đang "mồ côi" (Chưa thuộc album nào cụ thể)
+                // 2. Lọc bài mồ côi (albumId rỗng hoặc Unknown)
                 var looseSongs = allArtistSongs.Where(s =>
                     string.IsNullOrEmpty(s.AlbumId) ||
+                    s.AlbumId == "" ||
                     s.Album == "Unknown" ||
                     s.Album == "Unknown Album" ||
                     string.IsNullOrEmpty(s.Album)).ToList();
 
-                // 3. NẾU ĐỦ 5 BÀI MỒ CÔI TRỞ LÊN -> KÍCH HOẠT GOM ALBUM!
-                if (looseSongs.Count >= 5)
+                System.Diagnostics.Debug.WriteLine(
+                    $"[AutoAlbum] artistId={artistId} | tổng={allArtistSongs.Count} | mồ côi={looseSongs.Count} | albumExists={albumExists}");
+
+                if (looseSongs.Count == 0) return; // Không có bài mồ côi → không làm gì
+
+                // ✅ FIX 3: Bỏ ngưỡng >= 5
+                // Lý do: Nếu album đã tồn tại thì chỉ cần >= 1 bài mồ côi là gán ngay
+                // Nếu album chưa tồn tại thì cần >= 3 bài mới tạo (tránh album chỉ 1 bài)
+                bool shouldProcess = albumExists
+                    ? looseSongs.Count >= 1   // Album có rồi → gán ngay dù chỉ 1 bài
+                    : looseSongs.Count >= 3;  // Album chưa có → cần ít nhất 3 bài mới tạo
+
+                if (!shouldProcess)
                 {
-                    // Tạo một ID đặc biệt để không bị trùng lặp
-                    string albumId = $"album_auto_{artistId}";
-                    string albumTitle = $"Tuyển Tập {artistName}"; // Ví dụ: "Tuyển Tập Ricky Star"
+                    System.Diagnostics.Debug.WriteLine($"[AutoAlbum] Chưa đủ bài để xử lý ({looseSongs.Count})");
+                    return;
+                }
 
-                    // 4. Kiểm tra xem Album này đã từng được tạo trên Firebase chưa
-                    string getAlbumUrl = $"{_baseUrl}/albums/{albumId}";
-                    var checkRes = await _httpClient.GetAsync(getAlbumUrl);
-
-                    if (!checkRes.IsSuccessStatusCode)
+                // 3. Tạo album nếu chưa có
+                if (!albumExists)
+                {
+                    var newAlbum = new
                     {
-                        // CHƯA CÓ -> TẠO ALBUM MỚI LÊN FIREBASE
-                        var newAlbum = new
+                        fields = new
                         {
-                            fields = new
-                            {
-                                title = new { stringValue = albumTitle },
-                                artistId = new { stringValue = artistId },
-                                artistName = new { stringValue = artistName },
-                                coverImage = new { stringValue = fallbackCover ?? "cover_chill.jpg" },
-                                releaseYear = new { integerValue = DateTime.Now.Year }
-                            }
-                        };
+                            title = new { stringValue = albumTitle },
+                            artistId = new { stringValue = artistId },
+                            artistName = new { stringValue = artistName },
+                            coverImage = new { stringValue = fallbackCover ?? "cover_chill.jpg" },
+                            releaseYear = new { integerValue = DateTime.Now.Year }
+                        }
+                    };
+                    var albumContent = new StringContent(
+                        System.Text.Json.JsonSerializer.Serialize(newAlbum),
+                        System.Text.Encoding.UTF8, "application/json");
+                    await _httpClient.PatchAsync(getAlbumUrl, albumContent);
+                    System.Diagnostics.Debug.WriteLine($"💿 Đã tạo Album mới: {albumTitle}");
+                }
 
-                        var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(newAlbum), System.Text.Encoding.UTF8, "application/json");
-                        await _httpClient.PatchAsync(getAlbumUrl, content);
-                        System.Diagnostics.Debug.WriteLine($"💿 Đã tạo mới Album tự động: {albumTitle}");
-                    }
-
-                    // 5. CẬP NHẬT LẠI THÔNG TIN CHO CÁC BÀI HÁT MỒ CÔI
-                    // Gán ID Album mới tạo vào cho các bài hát
-                    foreach (var song in looseSongs)
+                // 4. ✅ FIX 4: Dùng await (không dùng fire-and-forget _=)
+                // Fire-and-forget → có thể bị hủy trước khi hoàn thành → albumId không được gán
+                int successCount = 0;
+                foreach (var song in looseSongs)
+                {
+                    try
                     {
-                        string updateUrl = $"{_baseUrl}/songs/{song.Id}?updateMask.fieldPaths=albumId&updateMask.fieldPaths=album";
+                        string updateUrl = $"{_baseUrl}/songs/{song.Id}" +
+                            $"?updateMask.fieldPaths=albumId&updateMask.fieldPaths=album";
                         var updatePayload = new
                         {
                             fields = new
@@ -1587,39 +1739,25 @@ namespace CosmicMusic.Services
                                 album = new { stringValue = albumTitle }
                             }
                         };
-                        var updateContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(updatePayload), System.Text.Encoding.UTF8, "application/json");
+                        var updateContent = new StringContent(
+                            System.Text.Json.JsonSerializer.Serialize(updatePayload),
+                            System.Text.Encoding.UTF8, "application/json");
 
-                        // Cập nhật âm thầm không cần await để tăng tốc độ
-                        _ = _httpClient.PatchAsync(updateUrl, updateContent);
+                        var res = await _httpClient.PatchAsync(updateUrl, updateContent);
+                        if (res.IsSuccessStatusCode) successCount++;
                     }
-
-                    System.Diagnostics.Debug.WriteLine($"✅ Đã tự động gom {looseSongs.Count} bài hát mồ côi vào Album {albumTitle}");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"❌ Lỗi Cỗ máy gom Album: {ex.Message}");
-            }
-        }
-        public async Task RenamePlaylistAsync(string playlistId, string newTitle)
-        {
-            if (string.IsNullOrEmpty(playlistId) || string.IsNullOrEmpty(newTitle)) return;
-            try
-            {
-                string url = $"{_baseUrl}/playlists/{playlistId}?updateMask.fieldPaths=name";
-                var payload = new
-                {
-                    fields = new
+                    catch (Exception innerEx)
                     {
-                        name = new { stringValue = newTitle }
+                        System.Diagnostics.Debug.WriteLine($"[AutoAlbum] Lỗi gán bài {song.Id}: {innerEx.Message}");
                     }
-                };
-                var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
-                await _httpClient.PatchAsync(url, content);
+                }
+
+                System.Diagnostics.Debug.WriteLine(
+                    $"✅ [AutoAlbum] Gán xong {successCount}/{looseSongs.Count} bài vào [{albumTitle}]");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Lỗi đổi tên Playlist: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"❌ Lỗi AutoAlbum: {ex.Message}");
             }
         }
         // Bổ sung hàm cập nhật Avatar vào Firestore bằng REST API
@@ -1652,7 +1790,6 @@ namespace CosmicMusic.Services
             }
         }
     }
-    
 
 
     public class UserFirestoreInfo

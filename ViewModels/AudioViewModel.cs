@@ -741,7 +741,7 @@ namespace CosmicMusic.ViewModels
                 intent.PutExtra("title", CurrentSong.Title);
                 intent.PutExtra("artist", CurrentSong.Artist);
                 intent.PutExtra("isPlaying", IsPlaying);
-
+                intent.PutExtra("coverImage", CurrentSong.CoverImage ?? "");
                 long durationMs = Duration.TotalMilliseconds > 0 ? (long)Duration.TotalMilliseconds : (long)(CurrentSong.Duration * 1000);
                 intent.PutExtra("duration", durationMs);
                 intent.PutExtra("position", (long)(CurrentPosition.TotalMilliseconds));
